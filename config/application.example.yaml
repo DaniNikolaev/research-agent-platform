@@ -1,0 +1,55 @@
+# =============================================================================
+# Application configuration example - safe placeholders only.
+#
+# Copy to `config/application.yaml` (git-ignored) or load it explicitly.
+# No secret values belong here: reference an environment variable instead
+# (see `.env.example`).  Physical paths stay relative: the infrastructure layer
+# resolves them against the project root, so the same file works on Windows and
+# on Linux.
+# =============================================================================
+
+app:
+  name: research-agent-platform
+  environment: local          # local | dev | ci | production
+  log_level: INFO             # DEBUG | INFO | WARNING | ERROR | CRITICAL
+
+paths:
+  # Roots owned by the infrastructure layer, relative to the project root.
+  data_root: data             # ignored by git except .gitkeep
+  artifact_subdir: artifacts
+  checkpoint_subdir: checkpoints
+  log_dir: logs
+
+runtime:
+  # Test/local only: checkpoint state disappears with the process.
+  # Durable checkpointing is a later storage sub-stage (OI-006).
+  checkpointer: in_memory     # in_memory | none
+  max_graph_steps: 50
+
+storage:
+  # Logical root of the Artifact Store. A URI scheme, not a Windows path:
+  # physical locations are an adapter detail (ADR-006).
+  artifact_root_uri: artifact://local/artifacts
+  # Name of the environment variable that holds the DSN, NOT the DSN itself.
+  database_dsn_reference: RESEARCH_PLATFORM_DB_DSN
+
+workflow:
+  # Per-stage retry budgets: separate counters, no shared global budget (ADR-001).
+  max_retry_parsing: 1
+  max_retry_extraction: 2
+  max_retry_evidence: 2
+  max_retry_validation: 2
+  node_timeout_seconds: 600
+  max_quality_gate_reparses: 1
+
+privacy:
+  # Content may leave the machine only after an explicit privacy review.
+  allow_prompt_content_in_trace: false
+  allow_document_content_in_trace: false
+
+observability:
+  enabled: false
+  log_format: jsonl           # jsonl | text
+  exporter: none              # none | console | otlp
+  service_name: research-agent-platform
+  log_retention_days: 30

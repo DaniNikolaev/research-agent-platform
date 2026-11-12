@@ -1,0 +1,556 @@
+{
+  "$defs": {
+    "BoundingBox": {
+      "additionalProperties": false,
+      "description": "Axis-aligned box on a physical page, in PDF points (origin top-left).",
+      "properties": {
+        "x0": {
+          "title": "X0",
+          "type": "number"
+        },
+        "x1": {
+          "title": "X1",
+          "type": "number"
+        },
+        "y0": {
+          "title": "Y0",
+          "type": "number"
+        },
+        "y1": {
+          "title": "Y1",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x0",
+        "y0",
+        "x1",
+        "y1"
+      ],
+      "title": "BoundingBox",
+      "type": "object"
+    },
+    "CoverageVerdict": {
+      "description": "How the verifier rates the extractor's coverage claim for one field.",
+      "enum": [
+        "confirmed_complete",
+        "confirmed_partial",
+        "disputed_complete",
+        "coverage_not_recorded"
+      ],
+      "title": "CoverageVerdict",
+      "type": "string"
+    },
+    "ElementType": {
+      "description": "Type of the source element an evidence quote was taken from.",
+      "enum": [
+        "paragraph",
+        "heading",
+        "table_cell",
+        "caption",
+        "footnote",
+        "list_item",
+        "formula",
+        "other"
+      ],
+      "title": "ElementType",
+      "type": "string"
+    },
+    "EvidenceRecord": {
+      "additionalProperties": false,
+      "description": "Canonical evidence element of the ``evidence_ledger``.\n\n``evidence_id`` is unique inside one package; the ledger is the single source of\ntruth, and card fields reference it by id only.",
+      "properties": {
+        "bbox": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BoundingBox"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "block_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Block Id",
+          "type": "string"
+        },
+        "char_end": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Char End"
+        },
+        "char_start": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Char Start"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "document_id": {
+          "pattern": "^[a-z0-9][a-z0-9_\\-]{2,63}$",
+          "title": "Document Id",
+          "type": "string"
+        },
+        "element_type": {
+          "$ref": "#/$defs/ElementType"
+        },
+        "evidence_id": {
+          "pattern": "^[a-z0-9][a-z0-9_\\-]{2,63}$",
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "extraction_method": {
+          "$ref": "#/$defs/ExtractionMethod",
+          "default": "unknown"
+        },
+        "match_status": {
+          "$ref": "#/$defs/ResolutionStatus"
+        },
+        "match_type": {
+          "$ref": "#/$defs/MatchType"
+        },
+        "occurrence_index": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Occurrence Index"
+        },
+        "page": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page"
+        },
+        "parser_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Parser Name",
+          "type": "string"
+        },
+        "parser_version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Parser Version",
+          "type": "string"
+        },
+        "printed_page_label": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Printed Page Label"
+        },
+        "quote": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Quote",
+          "type": "string"
+        },
+        "resolver_version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Resolver Version",
+          "type": "string"
+        },
+        "section_path": {
+          "anyOf": [
+            {
+              "items": {
+                "maxLength": 8192,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 16,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Section Path"
+        },
+        "source_sha256": {
+          "maxLength": 64,
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Sha256",
+          "type": "string"
+        },
+        "table_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TableRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "verification_method": {
+          "$ref": "#/$defs/VerificationMethod"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "document_id",
+        "source_sha256",
+        "block_id",
+        "element_type",
+        "quote",
+        "match_status",
+        "match_type",
+        "verification_method",
+        "parser_name",
+        "parser_version",
+        "resolver_version",
+        "created_at"
+      ],
+      "title": "EvidenceRecord",
+      "type": "object"
+    },
+    "ExtractionMethod": {
+      "description": "How the underlying text was obtained (OCR provenance, ADD §9.3).",
+      "enum": [
+        "text_layer",
+        "ocr",
+        "unknown"
+      ],
+      "title": "ExtractionMethod",
+      "type": "string"
+    },
+    "FindingSeverity": {
+      "description": "Impact of a finding on the usability of the card.",
+      "enum": [
+        "info",
+        "minor",
+        "major",
+        "critical"
+      ],
+      "title": "FindingSeverity",
+      "type": "string"
+    },
+    "FindingStatus": {
+      "description": "Support verdict for one card field.",
+      "enum": [
+        "verified",
+        "partially_supported",
+        "unsupported",
+        "contradicted",
+        "omitted",
+        "not_verifiable",
+        "not_checked"
+      ],
+      "title": "FindingStatus",
+      "type": "string"
+    },
+    "MatchType": {
+      "description": "How the quote text compared with the source text.",
+      "enum": [
+        "exact",
+        "normalized",
+        "fuzzy",
+        "none"
+      ],
+      "title": "MatchType",
+      "type": "string"
+    },
+    "ResolutionStatus": {
+      "description": "Outcome of deterministic resolution (does the quote have a trustworthy location?).\n\n``resolved``\n    Exactly one location was found and verified.\n``ambiguous``\n    The quote text matches at more than one location (or the span/context check\n    cannot single one out).  The resolver must **not** pick one at random and must\n    not report a fabricated position as certain.\n``unresolved``\n    No exact (or acceptably normalized) match was found.  A fuzzy similarity is\n    reported through :class:`MatchType` and never upgrades this status.",
+      "enum": [
+        "resolved",
+        "ambiguous",
+        "unresolved"
+      ],
+      "title": "ResolutionStatus",
+      "type": "string"
+    },
+    "ScientificReviewStatus": {
+      "description": "Review-level verdict of the whole package (ADD §13.5).",
+      "enum": [
+        "pending",
+        "in_review",
+        "verified_with_issues",
+        "verified",
+        "human_review_required"
+      ],
+      "title": "ScientificReviewStatus",
+      "type": "string"
+    },
+    "TableRef": {
+      "additionalProperties": false,
+      "description": "Locator inside a table element (ADD §12.2).",
+      "properties": {
+        "cell_id": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cell Id"
+        },
+        "column_index": {
+          "minimum": 0,
+          "title": "Column Index",
+          "type": "integer"
+        },
+        "row_index": {
+          "minimum": 0,
+          "title": "Row Index",
+          "type": "integer"
+        },
+        "table_id": {
+          "pattern": "^[a-z0-9][a-z0-9_\\-]{2,63}$",
+          "title": "Table Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "table_id",
+        "row_index",
+        "column_index"
+      ],
+      "title": "TableRef",
+      "type": "object"
+    },
+    "VerificationFinding": {
+      "additionalProperties": false,
+      "description": "One verifier finding about one card field.",
+      "properties": {
+        "agent_1a_evidence_ids": {
+          "items": {
+            "pattern": "^[a-z0-9][a-z0-9_\\-]{2,63}$",
+            "type": "string"
+          },
+          "maxItems": 16,
+          "title": "Agent 1A Evidence Ids",
+          "type": "array"
+        },
+        "agent_1b_evidence": {
+          "items": {
+            "$ref": "#/$defs/EvidenceRecord"
+          },
+          "maxItems": 16,
+          "title": "Agent 1B Evidence",
+          "type": "array"
+        },
+        "comment": {
+          "maxLength": 8192,
+          "minLength": 1,
+          "title": "Comment",
+          "type": "string"
+        },
+        "coverage_verdict": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CoverageVerdict"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "field_path": {
+          "maxLength": 128,
+          "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+          "title": "Field Path",
+          "type": "string"
+        },
+        "finding_id": {
+          "pattern": "^[a-z0-9][a-z0-9_\\-]{2,63}$",
+          "title": "Finding Id",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/FindingSeverity"
+        },
+        "status": {
+          "$ref": "#/$defs/FindingStatus"
+        }
+      },
+      "required": [
+        "finding_id",
+        "field_path",
+        "status",
+        "severity",
+        "comment"
+      ],
+      "title": "VerificationFinding",
+      "type": "object"
+    },
+    "VerificationMethod": {
+      "description": "Mechanism that produced the comparison result; recorded for audit.",
+      "enum": [
+        "exact_string_match",
+        "normalized_string_match",
+        "fuzzy_string_match",
+        "no_match_found"
+      ],
+      "title": "VerificationMethod",
+      "type": "string"
+    }
+  },
+  "$id": "https://research-agent-platform.local/contracts/agent_1b/v1.1/verification_report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Independent verification report produced by Agent 1B, contract 1.1. Adds the 'omitted' finding status and coverage verdicts; never rewrites the Agent 1A card.",
+  "properties": {
+    "agent_1a_contract_version": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Agent 1A Contract Version",
+      "type": "string"
+    },
+    "agent_1a_package_id": {
+      "pattern": "^[a-z0-9][a-z0-9_\\-]{2,63}$",
+      "title": "Agent 1A Package Id",
+      "type": "string"
+    },
+    "agent_id": {
+      "const": "1B",
+      "default": "1B",
+      "title": "Agent Id",
+      "type": "string"
+    },
+    "agent_version": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Agent Version",
+      "type": "string"
+    },
+    "completed_at": {
+      "format": "date-time",
+      "title": "Completed At",
+      "type": "string"
+    },
+    "contract_version": {
+      "const": "1.1",
+      "default": "1.1",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "coverage_reviewed": {
+      "default": false,
+      "title": "Coverage Reviewed",
+      "type": "boolean"
+    },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/VerificationFinding"
+      },
+      "maxItems": 1000,
+      "title": "Findings",
+      "type": "array"
+    },
+    "model_configuration_fingerprint": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Model Configuration Fingerprint",
+      "type": "string"
+    },
+    "model_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Model Id",
+      "type": "string"
+    },
+    "model_provider": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Model Provider",
+      "type": "string"
+    },
+    "prompt_version": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Prompt Version",
+      "type": "string"
+    },
+    "report_id": {
+      "pattern": "^[a-z0-9][a-z0-9_\\-]{2,63}$",
+      "title": "Report Id",
+      "type": "string"
+    },
+    "scientific_review_status": {
+      "$ref": "#/$defs/ScientificReviewStatus"
+    },
+    "started_at": {
+      "format": "date-time",
+      "title": "Started At",
+      "type": "string"
+    },
+    "summary": {
+      "maxLength": 8192,
+      "minLength": 1,
+      "title": "Summary",
+      "type": "string"
+    }
+  },
+  "required": [
+    "report_id",
+    "agent_1a_package_id",
+    "agent_1a_contract_version",
+    "agent_version",
+    "prompt_version",
+    "model_provider",
+    "model_id",
+    "model_configuration_fingerprint",
+    "started_at",
+    "completed_at",
+    "scientific_review_status",
+    "summary",
+    "findings"
+  ],
+  "title": "Agent1BVerificationReportV11",
+  "type": "object"
+}

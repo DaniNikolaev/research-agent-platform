@@ -1,0 +1,47 @@
+# --- Python -------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.pyd
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.pytest_tmp/
+pytest-of-*/
+.ty/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# --- Local configuration and secrets ------------------------------------
+.env
+.env.*
+!.env.example
+config/application.yaml
+config/models.yaml
+*.pem
+*.key
+
+# --- Runtime artefacts (never committed) --------------------------------
+artifacts/
+storage/
+logs/
+data/
+tests/fixtures/artifacts/
+
+# --- Scientific sources: PDFs are large binaries and may be personal ----
+*.pdf
+*.docx
+*.zip
+
+# --- Editor / OS --------------------------------------------------------
+.idea/
+.vscode/
+Thumbs.db
+desktop.ini

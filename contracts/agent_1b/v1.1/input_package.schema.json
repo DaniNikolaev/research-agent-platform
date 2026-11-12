@@ -1,0 +1,2001 @@
+{
+  "$defs": {
+    "Agent1ACardV2": {
+      "additionalProperties": false,
+      "description": "Agent 1A card contract v2 — nine sections, twenty-seven fields.",
+      "properties": {
+        "bibliography": {
+          "$ref": "#/$defs/Bibliography"
+        },
+        "contribution": {
+          "$ref": "#/$defs/StringListField"
+        },
+        "data": {
+          "$ref": "#/$defs/DataSection"
+        },
+        "findings": {
+          "$ref": "#/$defs/Findings"
+        },
+        "future_research": {
+          "$ref": "#/$defs/StringListField"
+        },
+        "limitations": {
+          "$ref": "#/$defs/StringListField"
+        },
+        "methodology": {
+          "$ref": "#/$defs/StringListField"
+        },
+        "research_design": {
+          "$ref": "#/$defs/ResearchDesign"
+        },
+        "variables": {
+          "$ref": "#/$defs/VariablesSection"
+        }
+      },
+      "required": [
+        "bibliography",
+        "research_design",
+        "methodology",
+        "data",
+        "variables",
+        "findings",
+        "limitations",
+        "future_research",
+        "contribution"
+      ],
+      "title": "Agent1ACardV2",
+      "type": "object"
+    },
+    "AgentId": {
+      "description": "Registered agent identifiers; ``1A`` is the extraction agent.",
+      "enum": [
+        "1A"
+      ],
+      "title": "AgentId",
+      "type": "string"
+    },
+    "ArtifactReference": {
+      "additionalProperties": false,
+      "description": "Immutable, checksummed reference to a stored artefact.\n\nThe reference is self-describing: it states the logical URI, the media type,\nthe size, the SHA-256 of the bytes and the artefact version, so that a reader\ncan detect substitution or truncation without trusting the writer.",
+      "properties": {
+        "artifact_id": {
+          "pattern": "^[a-z0-9][a-z0-9_\\-]{2,63}$",
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "artifact_type": {
+          "$ref": "#/$defs/ArtifactType"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "media_type": {
+          "maxLength": 128,
+          "pattern": "^[a-z][a-z0-9.+-]{0,63}/[A-Za-z0-9][A-Za-z0-9.+-]{0,127}$",
+          "title": "Media Type",
+          "type": "string"
+        },
+        "sha256": {
+          "maxLength": 64,
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "title": "Size Bytes",
+          "type": "integer"
+        },
+        "uri": {
+          "maxLength": 512,
+          "pattern": "^artifact://documents/[a-z0-9][a-z0-9_\\-]{2,63}/runs/[A-Za-z0-9][A-Za-z0-9_\\-]{2,63}/[a-z][a-z0-9_]{2,63}/[a-z0-9][a-z0-9_\\-]{2,63}$",
+          "title": "Uri",
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 8192,
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "artifact_type",
+        "uri",
+        "media_type",
+        "size_bytes",
+        "sha256",
+        "version",
+        "created_at"
+      ],
+      "title": "ArtifactReference",
+      "type": "object"
+    },
+    "ArtifactType": {
+      "description": "Closed set of artefact kinds produced or consumed by agent workflows.",
+      "enum": [
+        "original_document",
+        "parsed_document",
+        "quality_report",
+        "retrieval_index_manifest",
+        "extraction_candidates",
+        "evidence_ledger",
+        "validation_report",
+        "handoff_package",
+        "generated_markdown",
+        "run_log",
+        "trace"
+      ],
+      "title": "ArtifactType",
+      "type": "string"
+    },
+    "Bibliography": {
+      "additionalProperties": false,
+      "description": "G1 — bibliographic identification of the article.",
+      "properties": {
+        "authors": {
+          "$ref": "#/$defs/StringListField"
+        },
+        "doi": {
+          "$ref": "#/$defs/TextField"
+        },
+        "journal": {
+          "$ref": "#/$defs/TextField"
+        },
+        "keywords": {
+          "$ref": "#/$defs/StringListField"
+        },
+        "title": {
+          "$ref": "#/$defs/TextField"
+        },
+        "year": {
+          "$ref": "#/$defs/YearField"
+        }
+      },
+      "required": [
+        "title",
+        "authors",
+        "year",
+        "journal",
+        "doi",
+        "keywords"
+      ],
+      "title": "Bibliography",
+      "type": "object"
+    },
+    "BoundingBox": {
+      "additionalProperties": false,
+      "description": "Axis-aligned box on a physical page, in PDF points (origin top-left).",
+      "properties": {
+        "x0": {
+          "title": "X0",
+          "type": "number"
+        },
+        "x1": {
+          "title": "X1",
+          "type": "number"
+        },
+        "y0": {
+          "title": "Y0",
+          "type": "number"
+        },
+        "y1": {
+          "title": "Y1",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x0",
+        "y0",
+        "x1",
+        "y1"
+      ],
+      "title": "BoundingBox",
+      "type": "object"
+    },
+    "CheckOutcome": {
+      "description": "Outcome of a single technical check.",
+      "enum": [
+        "passed",
+        "failed",
+        "warning",
+        "skipped"
+      ],
+      "title": "CheckOutcome",
+      "type": "string"
+    },
+    "CoverageAvailability": {
+      "description": "Whether a package carries a coverage trail at all (version negotiation).",
+      "enum": [
+        "recorded",
+        "not_recorded"
+      ],
+      "title": "CoverageAvailability",
+      "type": "string"
+    },
+    "CoverageInput": {
+      "additionalProperties": false,
+      "description": "Coverage trail as received from Agent 1A, with explicit availability.",
+      "properties": {
+        "availability": {
+          "$ref": "#/$defs/CoverageAvailability"
+        },
+        "policy_version": {
+          "anyOf": [
+            {
+              "pattern": "^\\d+\\.\\d+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Policy Version"
+        },
+        "records": {
+          "items": {
+            "$ref": "#/$defs/FieldCoverageRecord"
+          },
+          "maxItems": 64,
+          "title": "Records",
+          "type": "array"
+        },
+        "source_contract_version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Source Contract Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "availability",
+        "source_contract_version"
+      ],
+      "title": "CoverageInput",
+      "type": "object"
+    },
+    "CoverageStatus": {
+      "description": "How much of the approved search plan for one field actually ran.",
+      "enum": [
+        "complete",
+        "partial",
+        "failed",
+        "not_applicable"
+      ],
+      "title": "CoverageStatus",
+      "type": "string"
+    },
+    "DataSection": {
+      "additionalProperties": false,
+      "description": "G3 — data description.",
+      "properties": {
+        "data_sources": {
+          "$ref": "#/$defs/StringListField"
+        },
+        "geographical_scope": {
+          "$ref": "#/$defs/TextField"
+        },
+        "observations": {
+          "$ref": "#/$defs/TextField"
+        },
+        "period": {
+          "$ref": "#/$defs/TextField"
+        },
+        "sample": {
+          "$ref": "#/$defs/TextField"
+        }
+      },
+      "required": [
+        "sample",
+        "period",
+        "geographical_scope",
+        "data_sources",
+        "observations"
+      ],
+      "title": "DataSection",
+      "type": "object"
+    },
+    "DocumentLanguage": {
+      "description": "Detected source language.",
+      "enum": [
+        "ru",
+        "en",
+        "unknown"
+      ],
+      "title": "DocumentLanguage",
+      "type": "string"
+    },
+    "DocumentManifest": {
+      "additionalProperties": false,
+      "description": "Immutable description of the original document version.",
+      "properties": {
+        "document_id": {
+          "pattern": "^[a-z0-9][a-z0-9_\\-]{2,63}$",
+          "title": "Document Id",
+          "type": "string"
+        },
+        "language": {
+          "$ref": "#/$defs/DocumentLanguage"
+        },
+        "original_artifact_uri": {
+          "maxLength": 512,
+          "pattern": "^artifact://documents/[a-z0-9][a-z0-9_\\-]{2,63}/runs/[A-Za-z0-9][A-Za-z0-9_\\-]{2,63}/[a-z][a-z0-9_]{2,63}/[a-z0-9][a-z0-9_\\-]{2,63}$",
+          "title": "Original Artifact Uri",
+          "type": "string"
+        },
+        "page_count": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page Count"
+        },
+        "source_file_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Source File Name",
+          "type": "string"
+        },
+        "source_media_type": {
+          "$ref": "#/$defs/SourceMediaType"
+        },
+        "source_sha256": {
+          "maxLength": 64,
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "document_id",
+        "source_file_name",
+        "source_media_type",
+        "language",
+        "source_sha256",
+        "original_artifact_uri"
+      ],
+      "title": "DocumentManifest",
+      "type": "object"
+    },
+    "ElementType": {
+      "description": "Type of the source element an evidence quote was taken from.",
+      "enum": [
+        "paragraph",
+        "heading",
+        "table_cell",
+        "caption",
+        "footnote",
+        "list_item",
+        "formula",
+        "other"
+      ],
+      "title": "ElementType",
+      "type": "string"
+    },
+    "EvidenceReference": {
+      "additionalProperties": false,
+      "description": "Reference from a card field to an element of the evidence ledger.\n\n``quote``, ``page`` and ``section_path`` are optional *denormalized read fields*\nfor human review.  When present they must be byte-identical to the referenced\nledger record; the package-level validator enforces that, so they can never\ndrift into a second, competing source of truth.",
+      "properties": {
+        "evidence_id": {
+          "pattern": "^[a-z0-9][a-z0-9_\\-]{2,63}$",
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "page": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page"
+        },
+        "quote": {
+          "anyOf": [
+            {
+              "maxLength": 8192,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Quote"
+        },
+        "section_path": {
+          "anyOf": [
+            {
+              "items": {
+                "maxLength": 8192,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 16,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Section Path"
+        }
+      },
+      "required": [
+        "evidence_id"
+      ],
+      "title": "EvidenceReference",
+      "type": "object"
+    },
+    "ExtractionMethod": {
+      "description": "How the underlying text was obtained (OCR provenance, ADD §9.3).",
+      "enum": [
+        "text_layer",
+        "ocr",
+        "unknown"
+      ],
+      "title": "ExtractionMethod",
+      "type": "string"
+    },
+    "FieldCoverageRecord": {
+      "additionalProperties": false,
+      "description": "Coverage of the search performed for one card field.",
+      "properties": {
+        "attempts": {
+          "items": {
+            "$ref": "#/$defs/SearchAttempt"
+          },
+          "maxItems": 64,
+          "title": "Attempts",
+          "type": "array"
+        },
+        "coverage_policy_version": {
+          "default": "1.0",
+          "pattern": "^\\d+\\.\\d+$",
+          "title": "Coverage Policy Version",
+          "type": "string"
+        },
+        "coverage_status": {
+          "$ref": "#/$defs/CoverageStatus"
+        },
+        "field_path": {
+          "maxLength": 128,
+          "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+          "title": "Field Path",
+          "type": "string"
+        },
+        "full_text_fallback_performed": {
+          "default": false,
+          "title": "Full Text Fallback Performed",
+          "type": "boolean"
+        },
+        "not_found_eligible": {
+          "title": "Not Found Eligible",
+          "type": "boolean"
+        },
+        "notes": {
+          "items": {
+            "maxLength": 8192,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Notes",
+          "type": "array"
+        },
+        "required_checks_completed": {
+          "title": "Required Checks Completed",
+          "type": "boolean"
+        },
+        "retrieval_mode": {
+          "$ref": "#/$defs/research_platform__domain__runs__models__RetrievalMode"
+        },
+        "retrieval_strategy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RetrievalStrategy"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "retrieved_block_ids": {
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 500,
+          "title": "Retrieved Block Ids",
+          "type": "array"
+        },
+        "search_attempt_ids": {
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 64,
+          "title": "Search Attempt Ids",
+          "type": "array"
+        },
+        "search_plan_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Search Plan Id",
+          "type": "string"
+        },
+        "searched_page_ranges": {
+          "items": {
+            "$ref": "#/$defs/PageRange"
+          },
+          "maxItems": 200,
+          "title": "Searched Page Ranges",
+          "type": "array"
+        },
+        "searched_sections": {
+          "items": {
+            "maxLength": 8192,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 64,
+          "title": "Searched Sections",
+          "type": "array"
+        }
+      },
+      "required": [
+        "field_path",
+        "retrieval_mode",
+        "coverage_status",
+        "search_plan_id",
+        "required_checks_completed",
+        "not_found_eligible"
+      ],
+      "title": "FieldCoverageRecord",
+      "type": "object"
+    },
+    "FieldStatus": {
+      "description": "Extraction status of a single card field.",
+      "enum": [
+        "found",
+        "not_found",
+        "unclear",
+        "not_applicable"
+      ],
+      "title": "FieldStatus",
+      "type": "string"
+    },
+    "Findings": {
+      "additionalProperties": false,
+      "description": "G4 — results and the authors' own conclusions.",
+      "properties": {
+        "authors_conclusions": {
+          "$ref": "#/$defs/StringListField"
+        },
+        "main_findings": {
+          "$ref": "#/$defs/StringListField"
+        }
+      },
+      "required": [
+        "main_findings",
+        "authors_conclusions"
+      ],
+      "title": "Findings",
+      "type": "object"
+    },
+    "ImmutableSourceAccess": {
+      "additionalProperties": false,
+      "description": "Read-only access to the exact original bytes the card was built from.",
+      "properties": {
+        "original_artifact_uri": {
+          "maxLength": 512,
+          "pattern": "^artifact://documents/[a-z0-9][a-z0-9_\\-]{2,63}/runs/[A-Za-z0-9][A-Za-z0-9_\\-]{2,63}/[a-z][a-z0-9_]{2,63}/[a-z0-9][a-z0-9_\\-]{2,63}$",
+          "title": "Original Artifact Uri",
+          "type": "string"
+        },
+        "read_only": {
+          "const": true,
+          "default": true,
+          "title": "Read Only",
+          "type": "boolean"
+        },
+        "source_sha256": {
+          "maxLength": 64,
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "original_artifact_uri",
+        "source_sha256"
+      ],
+      "title": "ImmutableSourceAccess",
+      "type": "object"
+    },
+    "MatchStatus": {
+      "description": "Outcome of deterministic quote resolution against the parsed document.",
+      "enum": [
+        "exact",
+        "normalized_exact",
+        "fuzzy_candidate",
+        "unresolved"
+      ],
+      "title": "MatchStatus",
+      "type": "string"
+    },
+    "MatchType": {
+      "description": "How the quote text compared with the source text.",
+      "enum": [
+        "exact",
+        "normalized",
+        "fuzzy",
+        "none"
+      ],
+      "title": "MatchType",
+      "type": "string"
+    },
+    "MutationPolicy": {
+      "additionalProperties": false,
+      "description": "Structural statement that Agent 1B does not edit the received card.",
+      "properties": {
+        "card_mutation_allowed": {
+          "const": false,
+          "default": false,
+          "title": "Card Mutation Allowed",
+          "type": "boolean"
+        },
+        "corrections_require_new_package": {
+          "const": true,
+          "default": true,
+          "title": "Corrections Require New Package",
+          "type": "boolean"
+        }
+      },
+      "title": "MutationPolicy",
+      "type": "object"
+    },
+    "PageRange": {
+      "additionalProperties": false,
+      "description": "Inclusive range of physical pages (1-based).",
+      "properties": {
+        "end_page": {
+          "minimum": 1,
+          "title": "End Page",
+          "type": "integer"
+        },
+        "start_page": {
+          "minimum": 1,
+          "title": "Start Page",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "start_page",
+        "end_page"
+      ],
+      "title": "PageRange",
+      "type": "object"
+    },
+    "ResearchDesign": {
+      "additionalProperties": false,
+      "description": "G2 — research problem, objective, questions, hypotheses, framework.",
+      "properties": {
+        "hypotheses": {
+          "$ref": "#/$defs/StringListField"
+        },
+        "literature_context": {
+          "$ref": "#/$defs/TextField"
+        },
+        "research_objective": {
+          "$ref": "#/$defs/TextField"
+        },
+        "research_problem": {
+          "$ref": "#/$defs/TextField"
+        },
+        "research_questions": {
+          "$ref": "#/$defs/StringListField"
+        },
+        "theoretical_framework": {
+          "$ref": "#/$defs/StringListField"
+        }
+      },
+      "required": [
+        "research_problem",
+        "research_objective",
+        "research_questions",
+        "hypotheses",
+        "theoretical_framework",
+        "literature_context"
+      ],
+      "title": "ResearchDesign",
+      "type": "object"
+    },
+    "ResolutionStatus": {
+      "description": "Outcome of deterministic resolution (does the quote have a trustworthy location?).\n\n``resolved``\n    Exactly one location was found and verified.\n``ambiguous``\n    The quote text matches at more than one location (or the span/context check\n    cannot single one out).  The resolver must **not** pick one at random and must\n    not report a fabricated position as certain.\n``unresolved``\n    No exact (or acceptably normalized) match was found.  A fuzzy similarity is\n    reported through :class:`MatchType` and never upgrades this status.",
+      "enum": [
+        "resolved",
+        "ambiguous",
+        "unresolved"
+      ],
+      "title": "ResolutionStatus",
+      "type": "string"
+    },
+    "RetrievalStrategy": {
+      "description": "Algorithm used to *search* inside the document.\n\nDeliberately separate from :class:`RetrievalMode`: the mode says what the model\nreceives, the strategy says how the fragments were found.",
+      "enum": [
+        "dense",
+        "lexical",
+        "dense_lexical"
+      ],
+      "title": "RetrievalStrategy",
+      "type": "string"
+    },
+    "SearchAttempt": {
+      "additionalProperties": false,
+      "description": "One executed (or explicitly skipped) search step.",
+      "properties": {
+        "attempt_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Attempt Id",
+          "type": "string"
+        },
+        "error_code": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 2,
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Code"
+        },
+        "outcome": {
+          "$ref": "#/$defs/SearchAttemptOutcome"
+        },
+        "retrieval_strategy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RetrievalStrategy"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "retrieved_block_ids": {
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 500,
+          "title": "Retrieved Block Ids",
+          "type": "array"
+        },
+        "searched_page_ranges": {
+          "items": {
+            "$ref": "#/$defs/PageRange"
+          },
+          "maxItems": 200,
+          "title": "Searched Page Ranges",
+          "type": "array"
+        },
+        "searched_sections": {
+          "items": {
+            "maxLength": 8192,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 64,
+          "title": "Searched Sections",
+          "type": "array"
+        },
+        "step_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Step Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "attempt_id",
+        "step_id",
+        "outcome"
+      ],
+      "title": "SearchAttempt",
+      "type": "object"
+    },
+    "SearchAttemptOutcome": {
+      "description": "Outcome of one search step.",
+      "enum": [
+        "succeeded",
+        "no_hits",
+        "failed",
+        "skipped"
+      ],
+      "title": "SearchAttemptOutcome",
+      "type": "string"
+    },
+    "SemanticValidation": {
+      "additionalProperties": false,
+      "description": "What Agent 1A is allowed to say about semantic support: nothing yet.",
+      "properties": {
+        "independent_verification_required": {
+          "const": true,
+          "default": true,
+          "title": "Independent Verification Required",
+          "type": "boolean"
+        },
+        "notes": {
+          "items": {
+            "maxLength": 8192,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 50,
+          "title": "Notes",
+          "type": "array"
+        },
+        "status": {
+          "$ref": "#/$defs/SemanticVerificationStatus",
+          "default": "pending_agent_1b"
+        }
+      },
+      "title": "SemanticValidation",
+      "type": "object"
+    },
+    "SemanticVerificationStatus": {
+      "description": "Semantic status that Agent 1A is allowed to emit.\n\nIntentionally closed: there is no ``verified`` member, so no code path can\ndeclare an Agent 1A package semantically verified.",
+      "enum": [
+        "not_performed",
+        "pending_agent_1b"
+      ],
+      "title": "SemanticVerificationStatus",
+      "type": "string"
+    },
+    "SourceMediaType": {
+      "description": "Supported original source media types.",
+      "enum": [
+        "application/pdf",
+        "text/plain"
+      ],
+      "title": "SourceMediaType",
+      "type": "string"
+    },
+    "StringListField": {
+      "additionalProperties": false,
+      "description": "List-of-strings card field (legacy ``stringListField``).",
+      "properties": {
+        "evidence_refs": {
+          "items": {
+            "$ref": "#/$defs/EvidenceReference"
+          },
+          "maxItems": 8,
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "status": {
+          "$ref": "#/$defs/FieldStatus"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "items": {
+                "maxLength": 8192,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 200,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "StringListField",
+      "type": "object"
+    },
+    "TableRef": {
+      "additionalProperties": false,
+      "description": "Locator inside a table element (ADD §12.2).",
+      "properties": {
+        "cell_id": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cell Id"
+        },
+        "column_index": {
+          "minimum": 0,
+          "title": "Column Index",
+          "type": "integer"
+        },
+        "row_index": {
+          "minimum": 0,
+          "title": "Row Index",
+          "type": "integer"
+        },
+        "table_id": {
+          "pattern": "^[a-z0-9][a-z0-9_\\-]{2,63}$",
+          "title": "Table Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "table_id",
+        "row_index",
+        "column_index"
+      ],
+      "title": "TableRef",
+      "type": "object"
+    },
+    "TechnicalStatus": {
+      "description": "Handoff-level technical status of an Agent 1A package (ADD §13.5).",
+      "enum": [
+        "valid",
+        "valid_with_warnings",
+        "blocked",
+        "failed"
+      ],
+      "title": "TechnicalStatus",
+      "type": "string"
+    },
+    "TechnicalValidation": {
+      "additionalProperties": false,
+      "description": "Deterministic technical validation results.",
+      "properties": {
+        "checks": {
+          "items": {
+            "$ref": "#/$defs/ValidationCheck"
+          },
+          "maxItems": 100,
+          "title": "Checks",
+          "type": "array"
+        },
+        "errors": {
+          "items": {
+            "$ref": "#/$defs/ValidationIssue"
+          },
+          "maxItems": 500,
+          "title": "Errors",
+          "type": "array"
+        },
+        "performed_at": {
+          "format": "date-time",
+          "title": "Performed At",
+          "type": "string"
+        },
+        "schema_valid": {
+          "title": "Schema Valid",
+          "type": "boolean"
+        },
+        "validator_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Validator Name",
+          "type": "string"
+        },
+        "validator_version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Validator Version",
+          "type": "string"
+        },
+        "warnings": {
+          "items": {
+            "$ref": "#/$defs/ValidationIssue"
+          },
+          "maxItems": 500,
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "schema_valid",
+        "validator_name",
+        "validator_version",
+        "performed_at"
+      ],
+      "title": "TechnicalValidation",
+      "type": "object"
+    },
+    "TextField": {
+      "additionalProperties": false,
+      "description": "Free-text card field (legacy ``textField``).",
+      "properties": {
+        "evidence_refs": {
+          "items": {
+            "$ref": "#/$defs/EvidenceReference"
+          },
+          "maxItems": 8,
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "status": {
+          "$ref": "#/$defs/FieldStatus"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "maxLength": 8192,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "TextField",
+      "type": "object"
+    },
+    "ValidationCheck": {
+      "additionalProperties": false,
+      "description": "A named technical check and its outcome.",
+      "properties": {
+        "check_id": {
+          "maxLength": 64,
+          "minLength": 2,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Check Id",
+          "type": "string"
+        },
+        "description": {
+          "maxLength": 8192,
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "detail": {
+          "anyOf": [
+            {
+              "maxLength": 8192,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detail"
+        },
+        "outcome": {
+          "$ref": "#/$defs/CheckOutcome"
+        }
+      },
+      "required": [
+        "check_id",
+        "description",
+        "outcome"
+      ],
+      "title": "ValidationCheck",
+      "type": "object"
+    },
+    "ValidationIssue": {
+      "additionalProperties": false,
+      "description": "A single technical error or warning.",
+      "properties": {
+        "code": {
+          "maxLength": 64,
+          "minLength": 2,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Code",
+          "type": "string"
+        },
+        "evidence_id": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence Id"
+        },
+        "field_path": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Field Path"
+        },
+        "message": {
+          "maxLength": 8192,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "title": "ValidationIssue",
+      "type": "object"
+    },
+    "ValidationReport": {
+      "additionalProperties": false,
+      "description": "Full validation section of an Agent 1A package.",
+      "properties": {
+        "semantic": {
+          "$ref": "#/$defs/SemanticValidation"
+        },
+        "technical": {
+          "$ref": "#/$defs/TechnicalValidation"
+        },
+        "technical_status": {
+          "$ref": "#/$defs/TechnicalStatus"
+        }
+      },
+      "required": [
+        "technical_status",
+        "technical"
+      ],
+      "title": "ValidationReport",
+      "type": "object"
+    },
+    "VariablesSection": {
+      "additionalProperties": false,
+      "description": "G3 — variable roles.",
+      "properties": {
+        "controls": {
+          "$ref": "#/$defs/StringListField"
+        },
+        "dependent": {
+          "$ref": "#/$defs/StringListField"
+        },
+        "independent": {
+          "$ref": "#/$defs/StringListField"
+        },
+        "other_variables": {
+          "$ref": "#/$defs/StringListField"
+        }
+      },
+      "required": [
+        "dependent",
+        "independent",
+        "controls",
+        "other_variables"
+      ],
+      "title": "VariablesSection",
+      "type": "object"
+    },
+    "YearField": {
+      "additionalProperties": false,
+      "description": "Publication-year card field (legacy ``yearField``).",
+      "properties": {
+        "evidence_refs": {
+          "items": {
+            "$ref": "#/$defs/EvidenceReference"
+          },
+          "maxItems": 8,
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "status": {
+          "$ref": "#/$defs/FieldStatus"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "maximum": 2100,
+              "minimum": 1500,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "YearField",
+      "type": "object"
+    },
+    "research_platform__domain__evidence__models__EvidenceRecord": {
+      "additionalProperties": false,
+      "description": "Canonical evidence element of the ``evidence_ledger``.\n\n``evidence_id`` is unique inside one package; the ledger is the single source of\ntruth, and card fields reference it by id only.",
+      "properties": {
+        "bbox": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BoundingBox"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "block_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Block Id",
+          "type": "string"
+        },
+        "char_end": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Char End"
+        },
+        "char_start": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Char Start"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "document_id": {
+          "pattern": "^[a-z0-9][a-z0-9_\\-]{2,63}$",
+          "title": "Document Id",
+          "type": "string"
+        },
+        "element_type": {
+          "$ref": "#/$defs/ElementType"
+        },
+        "evidence_id": {
+          "pattern": "^[a-z0-9][a-z0-9_\\-]{2,63}$",
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "extraction_method": {
+          "$ref": "#/$defs/ExtractionMethod",
+          "default": "unknown"
+        },
+        "match_status": {
+          "$ref": "#/$defs/ResolutionStatus"
+        },
+        "match_type": {
+          "$ref": "#/$defs/MatchType"
+        },
+        "occurrence_index": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Occurrence Index"
+        },
+        "page": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page"
+        },
+        "parser_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Parser Name",
+          "type": "string"
+        },
+        "parser_version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Parser Version",
+          "type": "string"
+        },
+        "printed_page_label": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Printed Page Label"
+        },
+        "quote": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Quote",
+          "type": "string"
+        },
+        "resolver_version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Resolver Version",
+          "type": "string"
+        },
+        "section_path": {
+          "anyOf": [
+            {
+              "items": {
+                "maxLength": 8192,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 16,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Section Path"
+        },
+        "source_sha256": {
+          "maxLength": 64,
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Sha256",
+          "type": "string"
+        },
+        "table_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TableRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "verification_method": {
+          "$ref": "#/$defs/research_platform__domain__evidence__models__VerificationMethod"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "document_id",
+        "source_sha256",
+        "block_id",
+        "element_type",
+        "quote",
+        "match_status",
+        "match_type",
+        "verification_method",
+        "parser_name",
+        "parser_version",
+        "resolver_version",
+        "created_at"
+      ],
+      "title": "EvidenceRecord",
+      "type": "object"
+    },
+    "research_platform__domain__evidence__models__VerificationMethod": {
+      "description": "Mechanism that produced the comparison result; recorded for audit.",
+      "enum": [
+        "exact_string_match",
+        "normalized_string_match",
+        "fuzzy_string_match",
+        "no_match_found"
+      ],
+      "title": "VerificationMethod",
+      "type": "string"
+    },
+    "research_platform__domain__evidence__v2_0__EvidenceRecord": {
+      "additionalProperties": false,
+      "description": "Canonical evidence element of the ``evidence_ledger``.\n\n``evidence_id`` is unique inside one package; the ledger is the single source of\ntruth, and card fields reference it by id only.",
+      "properties": {
+        "bbox": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BoundingBox"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "block_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Block Id",
+          "type": "string"
+        },
+        "char_end": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Char End"
+        },
+        "char_start": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Char Start"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "document_id": {
+          "pattern": "^[a-z0-9][a-z0-9_\\-]{2,63}$",
+          "title": "Document Id",
+          "type": "string"
+        },
+        "element_type": {
+          "$ref": "#/$defs/ElementType"
+        },
+        "evidence_id": {
+          "pattern": "^[a-z0-9][a-z0-9_\\-]{2,63}$",
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "extraction_method": {
+          "$ref": "#/$defs/ExtractionMethod",
+          "default": "unknown"
+        },
+        "match_status": {
+          "$ref": "#/$defs/MatchStatus"
+        },
+        "page": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page"
+        },
+        "printed_page_label": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Printed Page Label"
+        },
+        "quote": {
+          "maxLength": 8192,
+          "minLength": 1,
+          "title": "Quote",
+          "type": "string"
+        },
+        "section_path": {
+          "anyOf": [
+            {
+              "items": {
+                "maxLength": 8192,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 16,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Section Path"
+        },
+        "source_sha256": {
+          "maxLength": 64,
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Sha256",
+          "type": "string"
+        },
+        "table_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TableRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "verification_method": {
+          "$ref": "#/$defs/research_platform__domain__evidence__v2_0__VerificationMethod"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "document_id",
+        "source_sha256",
+        "block_id",
+        "element_type",
+        "quote",
+        "match_status",
+        "verification_method",
+        "created_at"
+      ],
+      "title": "EvidenceRecord",
+      "type": "object"
+    },
+    "research_platform__domain__evidence__v2_0__VerificationMethod": {
+      "description": "Mechanism that produced ``match_status``; recorded for audit.",
+      "enum": [
+        "exact_string_match",
+        "normalized_string_match",
+        "fuzzy_string_match",
+        "resolver_unresolved"
+      ],
+      "title": "VerificationMethod",
+      "type": "string"
+    },
+    "research_platform__domain__runs__models__RetrievalMode": {
+      "description": "How the document context is assembled for the model (ADD §10.2).\n\n``hybrid`` means \"short global document context + targeted fragments\"; it is *not*\na way to push the full text of a large article past the context budget.",
+      "enum": [
+        "full_context",
+        "rag",
+        "hybrid",
+        "not_applicable"
+      ],
+      "title": "RetrievalMode",
+      "type": "string"
+    },
+    "research_platform__domain__runs__models__RunMetadata": {
+      "additionalProperties": false,
+      "description": "Reproducibility block of one Agent 1A attempt.",
+      "properties": {
+        "agent_id": {
+          "$ref": "#/$defs/AgentId"
+        },
+        "agent_version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Agent Version",
+          "type": "string"
+        },
+        "completed_at": {
+          "format": "date-time",
+          "title": "Completed At",
+          "type": "string"
+        },
+        "embedding_model_id": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Embedding Model Id"
+        },
+        "index_version": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Index Version"
+        },
+        "model_configuration_fingerprint": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Model Configuration Fingerprint",
+          "type": "string"
+        },
+        "model_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Model Id",
+          "type": "string"
+        },
+        "model_provider": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Model Provider",
+          "type": "string"
+        },
+        "parser_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Parser Name",
+          "type": "string"
+        },
+        "parser_version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Parser Version",
+          "type": "string"
+        },
+        "prompt_version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Prompt Version",
+          "type": "string"
+        },
+        "retrieval_mode": {
+          "$ref": "#/$defs/research_platform__domain__runs__models__RetrievalMode"
+        },
+        "retrieval_strategy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RetrievalStrategy"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "run_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_\\-]{2,63}$",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "pattern": "^\\d+\\.\\d+$",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "started_at": {
+          "format": "date-time",
+          "title": "Started At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "agent_id",
+        "agent_version",
+        "prompt_version",
+        "schema_version",
+        "model_provider",
+        "model_id",
+        "model_configuration_fingerprint",
+        "parser_name",
+        "parser_version",
+        "started_at",
+        "completed_at",
+        "retrieval_mode"
+      ],
+      "title": "RunMetadata",
+      "type": "object"
+    },
+    "research_platform__domain__runs__v2_0__RetrievalMode": {
+      "description": "How the document was made available to the model for one run.",
+      "enum": [
+        "full_context",
+        "rag",
+        "not_applicable"
+      ],
+      "title": "RetrievalMode",
+      "type": "string"
+    },
+    "research_platform__domain__runs__v2_0__RunMetadata": {
+      "additionalProperties": false,
+      "description": "Reproducibility block of one Agent 1A attempt.",
+      "properties": {
+        "agent_id": {
+          "$ref": "#/$defs/AgentId"
+        },
+        "agent_version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Agent Version",
+          "type": "string"
+        },
+        "completed_at": {
+          "format": "date-time",
+          "title": "Completed At",
+          "type": "string"
+        },
+        "embedding_model_id": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Embedding Model Id"
+        },
+        "index_version": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Index Version"
+        },
+        "model_configuration_fingerprint": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Model Configuration Fingerprint",
+          "type": "string"
+        },
+        "model_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Model Id",
+          "type": "string"
+        },
+        "model_provider": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Model Provider",
+          "type": "string"
+        },
+        "parser_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Parser Name",
+          "type": "string"
+        },
+        "parser_version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Parser Version",
+          "type": "string"
+        },
+        "prompt_version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Prompt Version",
+          "type": "string"
+        },
+        "retrieval_mode": {
+          "$ref": "#/$defs/research_platform__domain__runs__v2_0__RetrievalMode"
+        },
+        "run_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_\\-]{2,63}$",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "pattern": "^\\d+\\.\\d+$",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "started_at": {
+          "format": "date-time",
+          "title": "Started At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "agent_id",
+        "agent_version",
+        "prompt_version",
+        "schema_version",
+        "model_provider",
+        "model_id",
+        "model_configuration_fingerprint",
+        "parser_name",
+        "parser_version",
+        "started_at",
+        "completed_at",
+        "retrieval_mode"
+      ],
+      "title": "RunMetadata",
+      "type": "object"
+    }
+  },
+  "$id": "https://research-agent-platform.local/contracts/agent_1b/v1.1/input_package.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Input of the Agent 1B verification workflow, contract 1.1: the immutable Agent 1A package content, read-only access to the original, and the received Coverage Trail with explicit availability.",
+  "properties": {
+    "agent_1a_contract_version": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Agent 1A Contract Version",
+      "type": "string"
+    },
+    "agent_1a_package_id": {
+      "pattern": "^[a-z0-9][a-z0-9_\\-]{2,63}$",
+      "title": "Agent 1A Package Id",
+      "type": "string"
+    },
+    "artifacts": {
+      "items": {
+        "$ref": "#/$defs/ArtifactReference"
+      },
+      "maxItems": 500,
+      "minItems": 1,
+      "title": "Artifacts",
+      "type": "array"
+    },
+    "card": {
+      "$ref": "#/$defs/Agent1ACardV2"
+    },
+    "contract_version": {
+      "const": "1.1",
+      "default": "1.1",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "coverage": {
+      "$ref": "#/$defs/CoverageInput"
+    },
+    "document": {
+      "$ref": "#/$defs/DocumentManifest"
+    },
+    "evidence_ledger": {
+      "items": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/research_platform__domain__evidence__models__EvidenceRecord"
+          },
+          {
+            "$ref": "#/$defs/research_platform__domain__evidence__v2_0__EvidenceRecord"
+          }
+        ]
+      },
+      "maxItems": 5000,
+      "title": "Evidence Ledger",
+      "type": "array"
+    },
+    "mutation_policy": {
+      "$ref": "#/$defs/MutationPolicy"
+    },
+    "package_id": {
+      "pattern": "^[a-z0-9][a-z0-9_\\-]{2,63}$",
+      "title": "Package Id",
+      "type": "string"
+    },
+    "run": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/research_platform__domain__runs__models__RunMetadata"
+        },
+        {
+          "$ref": "#/$defs/research_platform__domain__runs__v2_0__RunMetadata"
+        }
+      ],
+      "title": "Run"
+    },
+    "source_access": {
+      "$ref": "#/$defs/ImmutableSourceAccess"
+    },
+    "validation": {
+      "$ref": "#/$defs/ValidationReport"
+    }
+  },
+  "required": [
+    "package_id",
+    "agent_1a_contract_version",
+    "agent_1a_package_id",
+    "document",
+    "source_access",
+    "run",
+    "card",
+    "evidence_ledger",
+    "coverage",
+    "validation",
+    "artifacts"
+  ],
+  "title": "Agent1BInputPackageV11",
+  "type": "object"
+}

@@ -1,0 +1,324 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-1a.local/schemas/card_schema-1.0.json",
+  "title": "Agent_1A scientific article card",
+  "description": "Карточка научной статьи, формируемая агентом 1А. Версия схемы 1.0. Контракт для последующей проверки агентом 1B: каждое существенное утверждение сопровождается evidence (page/section/quote).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "document_id",
+    "source",
+    "bibliography",
+    "research_design",
+    "methodology",
+    "data",
+    "variables",
+    "findings",
+    "limitations",
+    "future_research",
+    "contribution",
+    "processing"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0",
+      "description": "Версия схемы карточки."
+    },
+    "document_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_\\-]{2,63}$",
+      "description": "Уникальный идентификатор документа, назначается программно. Связывает карточку, исходный файл и извлечённый текст."
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file_name", "file_type", "language", "total_pages", "ocr_used"],
+      "properties": {
+        "file_name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Имя исходного файла без изменений."
+        },
+        "file_type": {
+          "type": "string",
+          "enum": ["pdf", "txt"]
+        },
+        "language": {
+          "type": "string",
+          "enum": ["ru", "en", "unknown"],
+          "description": "Определённый язык документа; unknown, если определить не удалось."
+        },
+        "total_pages": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "description": "Количество страниц PDF; null для TXT без пагинации."
+        },
+        "ocr_used": {
+          "type": "boolean",
+          "description": "Использовался ли OCR при извлечении текста."
+        }
+      }
+    },
+    "bibliography": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "authors", "year", "journal", "doi", "keywords"],
+      "properties": {
+        "title": { "$ref": "#/$defs/textField" },
+        "authors": { "$ref": "#/$defs/stringListField" },
+        "year": { "$ref": "#/$defs/yearField" },
+        "journal": { "$ref": "#/$defs/textField" },
+        "doi": { "$ref": "#/$defs/textField" },
+        "keywords": { "$ref": "#/$defs/stringListField" }
+      }
+    },
+    "research_design": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "research_problem",
+        "research_objective",
+        "research_questions",
+        "hypotheses",
+        "theoretical_framework",
+        "literature_context"
+      ],
+      "properties": {
+        "research_problem": { "$ref": "#/$defs/textField" },
+        "research_objective": { "$ref": "#/$defs/textField" },
+        "research_questions": { "$ref": "#/$defs/stringListField" },
+        "hypotheses": { "$ref": "#/$defs/stringListField" },
+        "theoretical_framework": { "$ref": "#/$defs/stringListField" },
+        "literature_context": { "$ref": "#/$defs/textField" }
+      }
+    },
+    "methodology": { "$ref": "#/$defs/stringListField" },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sample", "period", "geographical_scope", "data_sources", "observations"],
+      "properties": {
+        "sample": { "$ref": "#/$defs/textField" },
+        "period": { "$ref": "#/$defs/textField" },
+        "geographical_scope": { "$ref": "#/$defs/textField" },
+        "data_sources": { "$ref": "#/$defs/stringListField" },
+        "observations": { "$ref": "#/$defs/textField" }
+      }
+    },
+    "variables": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dependent", "independent", "controls", "other_variables"],
+      "properties": {
+        "dependent": { "$ref": "#/$defs/stringListField" },
+        "independent": { "$ref": "#/$defs/stringListField" },
+        "controls": { "$ref": "#/$defs/stringListField" },
+        "other_variables": { "$ref": "#/$defs/stringListField" }
+      }
+    },
+    "findings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["main_findings", "authors_conclusions"],
+      "properties": {
+        "main_findings": { "$ref": "#/$defs/stringListField" },
+        "authors_conclusions": { "$ref": "#/$defs/stringListField" }
+      }
+    },
+    "limitations": { "$ref": "#/$defs/stringListField" },
+    "future_research": { "$ref": "#/$defs/stringListField" },
+    "contribution": { "$ref": "#/$defs/stringListField" },
+    "processing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agent",
+        "agent_version",
+        "schema_version",
+        "processed_at",
+        "extraction_status",
+        "warnings",
+        "needs_human_review"
+      ],
+      "properties": {
+        "agent": { "type": "string", "const": "1A" },
+        "agent_version": { "type": "string", "minLength": 1 },
+        "schema_version": { "type": "string", "const": "1.0" },
+        "processed_at": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "Момент обработки в формате ISO 8601. null до завершения обработки."
+        },
+        "extraction_status": {
+          "type": "string",
+          "enum": [
+            "completed",
+            "completed_with_warnings",
+            "validation_failed",
+            "failed"
+          ]
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Технические предупреждения обработки (OCR, несовпадение цитат и т.п.)."
+        },
+        "needs_human_review": {
+          "type": "boolean",
+          "description": "Требуется ли ручная проверка карточки."
+        }
+      }
+    }
+  },
+  "$defs": {
+    "status": {
+      "type": "string",
+      "enum": ["found", "not_found", "unclear", "not_applicable"],
+      "description": "Статус извлечения поля."
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["page", "section", "quote"],
+      "properties": {
+        "page": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "description": "Физический номер страницы PDF с 1. null для TXT без пагинации."
+        },
+        "section": {
+          "type": ["string", "null"],
+          "description": "Название раздела статьи, если его удалось определить."
+        },
+        "quote": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Оригинальный фрагмент текста на языке источника. Не перевод."
+        },
+        "location": {
+          "type": ["string", "null"],
+          "description": "Позиция в документе для TXT без пагинации: заголовок раздела или иной ориентир."
+        }
+      }
+    },
+    "evidenceList": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/evidence" }
+    },
+    "textField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "status", "evidence"],
+      "properties": {
+        "value": {
+          "type": ["string", "null"]
+        },
+        "status": { "$ref": "#/$defs/status" },
+        "evidence": { "$ref": "#/$defs/evidenceList" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "found" } }, "required": ["status"] },
+          "then": {
+            "properties": {
+              "value": { "type": "string", "minLength": 1 },
+              "evidence": { "minItems": 1 }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "status": { "enum": ["not_found", "not_applicable"] } },
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {
+              "value": { "type": "null" },
+              "evidence": { "maxItems": 0 }
+            }
+          }
+        }
+      ]
+    },
+    "stringListField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "status", "evidence"],
+      "properties": {
+        "value": {
+          "type": ["array", "null"],
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "status": { "$ref": "#/$defs/status" },
+        "evidence": { "$ref": "#/$defs/evidenceList" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "found" } }, "required": ["status"] },
+          "then": {
+            "properties": {
+              "value": { "type": "array", "minItems": 1 },
+              "evidence": { "minItems": 1 }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "status": { "enum": ["not_found", "not_applicable"] } },
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "anyOf": [
+                  { "type": "null" },
+                  { "type": "array", "maxItems": 0 }
+                ]
+              },
+              "evidence": { "maxItems": 0 }
+            }
+          }
+        }
+      ]
+    },
+    "yearField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "status", "evidence"],
+      "properties": {
+        "value": {
+          "type": ["integer", "null"],
+          "minimum": 1500,
+          "maximum": 2100
+        },
+        "status": { "$ref": "#/$defs/status" },
+        "evidence": { "$ref": "#/$defs/evidenceList" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "found" } }, "required": ["status"] },
+          "then": {
+            "properties": {
+              "value": { "type": "integer" },
+              "evidence": { "minItems": 1 }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "status": { "enum": ["not_found", "not_applicable"] } },
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {
+              "value": { "type": "null" },
+              "evidence": { "maxItems": 0 }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

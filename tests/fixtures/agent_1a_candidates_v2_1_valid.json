@@ -1,0 +1,20 @@
+{
+  "contract_version": "2.1",
+  "document_id": "doc_en_article_01",
+  "field_group": "G1",
+  "candidates": [
+    {
+      "candidate_id": "cand_0001",
+      "document_id": "doc_en_article_01",
+      "field_path": "bibliography.title",
+      "quote": "Board Gender Diversity and Firm Financial Performance",
+      "page_hint": 1,
+      "section_hint": "Title",
+      "block_id_hint": "el_0001",
+      "context_before": null,
+      "context_after": null,
+      "confidence": 0.9,
+      "note": null
+    }
+  ]
+}

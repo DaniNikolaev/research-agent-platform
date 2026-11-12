@@ -1,0 +1,172 @@
+{
+  "$defs": {
+    "EvidenceCandidate": {
+      "additionalProperties": false,
+      "description": "A model's proposal of evidence, expressed only as a quote plus hints.\n\nRequired: the quote.  Everything else is an untrusted hint that the resolver may\nconfirm, ignore or contradict.  ``block_id_hint`` is additionally checked by the\nworkflow against the set of blocks that were actually supplied to the model; the\ncontract itself can only constrain the shape.",
+      "properties": {
+        "block_id_hint": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Block Id Hint"
+        },
+        "candidate_id": {
+          "pattern": "^[a-z0-9][a-z0-9_\\-]{2,63}$",
+          "title": "Candidate Id",
+          "type": "string"
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Confidence"
+        },
+        "context_after": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Context After"
+        },
+        "context_before": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Context Before"
+        },
+        "document_id": {
+          "pattern": "^[a-z0-9][a-z0-9_\\-]{2,63}$",
+          "title": "Document Id",
+          "type": "string"
+        },
+        "field_path": {
+          "maxLength": 128,
+          "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+          "title": "Field Path",
+          "type": "string"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "maxLength": 8192,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        },
+        "page_hint": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page Hint"
+        },
+        "quote": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Quote",
+          "type": "string"
+        },
+        "section_hint": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Section Hint"
+        }
+      },
+      "required": [
+        "candidate_id",
+        "document_id",
+        "field_path",
+        "quote"
+      ],
+      "title": "EvidenceCandidate",
+      "type": "object"
+    }
+  },
+  "$id": "https://research-agent-platform.local/contracts/agent_1a/v2.1/evidence_candidates.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Structured output of an extraction call: quotes plus untrusted locator hints. Contains no coordinates, no hashes and no resolution status.",
+  "properties": {
+    "candidates": {
+      "items": {
+        "$ref": "#/$defs/EvidenceCandidate"
+      },
+      "maxItems": 200,
+      "title": "Candidates",
+      "type": "array"
+    },
+    "contract_version": {
+      "default": "2.1",
+      "pattern": "^\\d+\\.\\d+$",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "document_id": {
+      "pattern": "^[a-z0-9][a-z0-9_\\-]{2,63}$",
+      "title": "Document Id",
+      "type": "string"
+    },
+    "field_group": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Field Group",
+      "type": "string"
+    }
+  },
+  "required": [
+    "document_id",
+    "field_group"
+  ],
+  "title": "EvidenceCandidateList",
+  "type": "object"
+}

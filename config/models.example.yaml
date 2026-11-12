@@ -1,0 +1,70 @@
+# =============================================================================
+# Model profile configuration example - PLACEHOLDERS ONLY.
+#
+# The real provider is an open decision of the project owner (ADR-005, status
+# Deferred; OI-001 ... OI-004).  The `fake-primary` profile is what the platform
+# actually runs today: it is served by the shipped fake adapter, needs no network
+# and no key, and says so in every response.
+#
+# Rules encoded by `research_platform/config.py`:
+#   * a secret is referenced by the NAME of an environment variable
+#     (`api_key_env`), never by the secret itself;
+#   * `base_url` must use https;
+#   * `purpose` is one of: extraction | planning | reconciliation | embedding |
+#     reranking | verification;
+#   * max_output_tokens < max_context_tokens, and the input budget
+#     (context - output - system reserve - safety reserve) must stay positive.
+# =============================================================================
+
+models:
+  default_profile: fake-primary
+
+  profiles:
+    fake-primary:
+      provider: fake_provider
+      model_id: fake_model_1
+      purpose: extraction
+      is_fake: true
+      max_context_tokens: 32000
+      max_output_tokens: 4000
+      supports_structured_output: true
+      supports_json_schema: true
+      supports_streaming: false
+      supports_tool_calls: false
+      timeout_seconds: 30
+      max_retries: 2
+      notes: >-
+        Local fake profile: deterministic, offline, structurally incapable of
+        producing scientific content. Used by `platform check` and
+        `agent1a workflow-smoke`.
+
+    extraction-primary:
+      # Placeholder: the owner has not chosen the provider yet.
+      provider: UNRESOLVED_CHOOSE_PROVIDER
+      model_id: UNRESOLVED_CHOOSE_MODEL
+      purpose: extraction
+      api_key_env: RESEARCH_PLATFORM_EXTRACTION_API_KEY
+      max_context_tokens: 128000
+      max_output_tokens: 8000
+      supports_structured_output: false
+      supports_json_schema: false
+      timeout_seconds: 180
+      max_retries: 2
+      notes: >-
+        Candidate for field-group extraction. Must pass capability smoke tests
+        (structured output, long input, finish reason, usage) before use.
+
+    embedding-primary:
+      provider: UNRESOLVED_CHOOSE_PROVIDER
+      model_id: UNRESOLVED_CHOOSE_EMBEDDING_MODEL
+      purpose: embedding
+      api_key_env: RESEARCH_PLATFORM_EMBEDDING_API_KEY
+      max_context_tokens: 8192
+      max_output_tokens: 512
+      supports_structured_output: false
+      supports_embeddings: true
+      timeout_seconds: 60
+      max_retries: 2
+      notes: >-
+        Candidate BAAI/bge-m3 must be evaluated on the bilingual gold set before
+        being pinned; the index version is stored per run.

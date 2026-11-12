@@ -1,0 +1,112 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "research-agent-platform"
+version = "0.1.0"
+description = "Multi-Agent Research Platform — Iteration 0 contract skeleton (architecture, contracts, boundaries)"
+readme = "README.md"
+requires-python = ">=3.13.18,<3.14"
+authors = [{ name = "Research Platform Owner" }]
+keywords = ["research", "langgraph", "evidence", "scientific-articles"]
+classifiers = [
+  "Private :: Do Not Upload",
+  "Programming Language :: Python :: 3.13",
+  "Typing :: Typed",
+]
+dependencies = [
+  # Core runtime: contract layer + workflow orchestrator declarations only.
+  "pydantic==2.14.3",
+  "pyyaml==6.0.3",
+  "langgraph==1.2.20",
+  "langchain-core==1.8.0",
+]
+
+[project.scripts]
+research-platform = "research_platform.cli:main"
+
+[dependency-groups]
+# Iteration 0 development and verification group.
+dev = [
+  "pytest==9.2.0",
+  "pytest-cov==7.1.0",
+  "ruff==0.17.4",
+  "ty==0.0.101",
+  "jsonschema==4.26.0",
+]
+# Document parsing group — not imported by Iteration 0 code.
+parsing = [
+  "docling==2.150.0",
+  "pymupdf==2.1",
+]
+# Metadata/vector storage group — infrastructure of the next iteration.
+storage = [
+  "sqlalchemy==2.1.8",
+  "alembic==1.20.1",
+  "psycopg[binary]==3.3.8",
+  "pgvector==0.5.1",
+]
+# HTTP API group — second interface, not implemented in Iteration 0.
+api = [
+  "fastapi==0.162.1",
+]
+
+[tool.uv]
+# Reproducible resolution: the lock must cover the target Windows environment.
+package = true
+# Pin the package manager itself (ADR-009): `.python-version` pins the interpreter and
+# this pins `uv`, so a different uv refuses to run instead of silently re-resolving.
+required-version = "==0.13.7"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/research_platform"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = "-ra --strict-markers --strict-config"
+pythonpath = ["src"]
+# Temp directories are removed after each test: a test run must not leave data behind in
+# the project tree (see docs/development/testing.md for the basetemp story).
+tmp_path_retention_policy = "none"
+markers = [
+  "contract: contract / JSON Schema compatibility tests",
+  "architecture: dependency-direction and boundary tests",
+]
+
+[tool.coverage.run]
+source = ["src/research_platform"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "raise NotImplementedError"]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+src = ["src", "tests", "tools"]
+extend-exclude = [".venv", "pytest-of-*", "artifacts", "storage"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM", "PT", "RUF", "ANN"]
+ignore = [
+  "ANN401",  # pydantic/typing payloads intentionally use Any
+  "RUF001",  # Cyrillic identifiers in Russian documentation strings are expected
+  "RUF002",
+  "RUF003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ANN", "PT011"]
+
+[tool.ruff.format]
+quote-style = "double"
+docstring-code-format = true
+
+[tool.ty.src]
+# Type checking covers the shipped package and the schema-export tool. `tests/` is
+# excluded on purpose: the contract suite *constructs* invalid payloads to prove that
+# validation rejects them, so it is type-invalid by design.
+include = ["src", "tools"]
+exclude = ["tests", ".venv"]

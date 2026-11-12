@@ -1,0 +1,436 @@
+{
+  "schema_version": "1.0",
+  "document_id": "en_article_7ae86a99",
+  "source": {
+    "file_name": "en_article.pdf",
+    "file_type": "pdf",
+    "language": "en",
+    "total_pages": 7,
+    "ocr_used": false
+  },
+  "bibliography": {
+    "title": {
+      "value": "Board Gender Diversity and Firm Financial Performance: Evidence from European Listed Companies",
+      "status": "found",
+      "evidence": [
+        {
+          "page": 1,
+          "section": "Title",
+          "quote": "Board Gender Diversity and Firm Financial Performance: Evidence from European Listed Companies"
+        }
+      ]
+    },
+    "authors": {
+      "value": [
+        "Anna Kowalska",
+        "Michael Brenner",
+        "Sofia Rossi"
+      ],
+      "status": "found",
+      "evidence": [
+        {
+          "page": 1,
+          "section": "Authors",
+          "quote": "Anna Kowalska, Michael Brenner, Sofia Rossi"
+        }
+      ]
+    },
+    "year": {
+      "value": 2021,
+      "status": "found",
+      "evidence": [
+        {
+          "page": 1,
+          "section": "Journal information",
+          "quote": "Journal of Corporate Finance and Governance, Vol. 12, No. 3, 2021, pp. 45-78"
+        }
+      ]
+    },
+    "journal": {
+      "value": "Journal of Corporate Finance and Governance",
+      "status": "found",
+      "evidence": [
+        {
+          "page": 1,
+          "section": "Journal information",
+          "quote": "Journal of Corporate Finance and Governance, Vol. 12, No. 3, 2021, pp. 45-78"
+        }
+      ]
+    },
+    "doi": {
+      "value": "10.1016/j.jcfg.2021.03.007",
+      "status": "found",
+      "evidence": [
+        {
+          "page": 1,
+          "section": "Journal information",
+          "quote": "DOI: 10.1016/j.jcfg.2021.03.007"
+        }
+      ]
+    },
+    "keywords": {
+      "value": [
+        "board gender diversity",
+        "firm performance",
+        "return on assets",
+        "panel data",
+        "fixed effects",
+        "Europe"
+      ],
+      "status": "found",
+      "evidence": [
+        {
+          "page": 1,
+          "section": "Keywords",
+          "quote": "Keywords: board gender diversity; firm performance; return on assets; panel data; fixed effects; Europe"
+        }
+      ]
+    }
+  },
+  "research_design": {
+    "research_problem": {
+      "value": "Несогласованность предшествующих эмпирических результатов об экономических последствиях гендерного разнообразия советов директоров в европейском контексте, где сосуществуют обязательные и добровольные подходы к формированию советов.",
+      "status": "found",
+      "evidence": [
+        {
+          "page": 2,
+          "section": "1. Introduction",
+          "quote": "The research problem addressed in this paper concerns the inconsistency of prior evidence on the economic consequences of board gender diversity in the European context, where mandatory and voluntary approaches to board composition coexist."
+        }
+      ]
+    },
+    "research_objective": {
+      "value": "Оценить связь между долей женщин в советах директоров и финансовой результативностью компаний на большой выборке европейских публичных компаний, а также проверить, модерирует ли эту связь институциональный уровень гендерного равенства.",
+      "status": "found",
+      "evidence": [
+        {
+          "page": 2,
+          "section": "1. Introduction",
+          "quote": "The objective of this study is to estimate the association between the share of female directors on corporate boards and firm financial performance for a large sample of European listed companies, and to assess whether institutional gender equality moderates this relationship."
+        }
+      ]
+    },
+    "research_questions": {
+      "value": null,
+      "status": "not_found",
+      "evidence": []
+    },
+    "hypotheses": {
+      "value": [
+        "H1: доля женщин в совете директоров положительно связана с рентабельностью компании, измеряемой рентабельностью активов (ROA).",
+        "H2: положительная связь между долей женщин в совете директоров и рентабельностью сильнее в странах с более высоким уровнем гендерного равенства."
+      ],
+      "status": "found",
+      "evidence": [
+        {
+          "page": 3,
+          "section": "2. Literature Review and Hypotheses",
+          "quote": "H1: The share of female directors on the board is positively associated with firm profitability measured by return on assets."
+        },
+        {
+          "page": 3,
+          "section": "2. Literature Review and Hypotheses",
+          "quote": "H2: The positive association between the share of female directors and firm profitability is stronger in countries with a higher level of gender equality."
+        }
+      ]
+    },
+    "theoretical_framework": {
+      "value": [
+        "теория агентских отношений (agency theory): более разнообразные советы эффективнее мониторят менеджмент",
+        "теория ресурсной зависимости (resource dependence theory): разнообразие расширяет доступ к информации, сетям и легитимности"
+      ],
+      "status": "found",
+      "evidence": [
+        {
+          "page": 3,
+          "section": "2. Literature Review and Hypotheses",
+          "quote": "Agency theory suggests that more diverse boards may monitor management more effectively, because directors with different backgrounds bring independent perspectives and reduce the risk of groupthink."
+        },
+        {
+          "page": 3,
+          "section": "2. Literature Review and Hypotheses",
+          "quote": "Resource dependence theory emphasises that diversity expands access to information, networks and legitimacy, which may improve strategic decisions."
+        }
+      ]
+    },
+    "literature_context": {
+      "value": "Авторы указывают на смешанные результаты предшествующих исследований: Carter, Simkins и Simpson (2003) нашли положительную связь разнообразия совета и стоимости фирмы для американских компаний, Rose (2007) не обнаружила значимой связи для датских публичных компаний, Francoeur, Labelle и Sinclair-Desgagnier (2008) — положительный эффект только в сложных средах.",
+      "status": "found",
+      "evidence": [
+        {
+          "page": 3,
+          "section": "2. Literature Review and Hypotheses",
+          "quote": "Prior studies report mixed findings. Carter, Simkins and Simpson (2003) found a positive relationship between board diversity and firm value for US firms, whereas Rose (2007) found no significant association for Danish listed firms. Francoeur, Labelle and Sinclair-Desgagnier (2008) reported a positive effect only in complex environments."
+        }
+      ]
+    }
+  },
+  "methodology": {
+    "value": [
+      "панельная регрессия с фиксированными эффектами по фирмам и годам (two-way fixed effects)",
+      "стандартные ошибки, кластеризованные на уровне фирмы",
+      "системный обобщённый метод моментов (system GMM) для контроля потенциальной эндогенности"
+    ],
+    "status": "found",
+    "evidence": [
+      {
+        "page": 4,
+        "section": "3.4. Empirical strategy",
+        "quote": "We estimate the following panel regression with firm and year fixed effects:"
+      },
+      {
+        "page": 4,
+        "section": "3.4. Empirical strategy",
+        "quote": "Standard errors are clustered at the firm level. In robustness checks we replace ROA with Tobin's Q, estimate a system GMM model to address potential endogeneity of board composition, and add country-level controls."
+      }
+    ]
+  },
+  "data": {
+    "sample": {
+      "value": "1 248 нефинансовых публичных компаний из 12 европейских стран; исключены фирмы с отсутствующими данными о составе советов директоров и фирмы с менее чем тремя последовательными годами наблюдений; финансовые компании и коммунальные предприятия исключены.",
+      "status": "found",
+      "evidence": [
+        {
+          "page": 4,
+          "section": "3.1. Sample",
+          "quote": "After excluding firms with missing board composition data and firms with fewer than three consecutive years of observations, the final sample comprises 1,248 firms and 11,232 firm-year observations. Financial firms and utilities are excluded because of their different accounting and regulatory environment."
+        }
+      ]
+    },
+    "period": {
+      "value": "2010–2019",
+      "status": "found",
+      "evidence": [
+        {
+          "page": 4,
+          "section": "3.1. Sample",
+          "quote": "The initial sample consists of all listed non-financial companies in 12 European countries covered by the Thomson Reuters Eikon database between 2010 and 2019."
+        }
+      ]
+    },
+    "geographical_scope": {
+      "value": "12 европейских стран",
+      "status": "found",
+      "evidence": [
+        {
+          "page": 4,
+          "section": "3.1. Sample",
+          "quote": "The initial sample consists of all listed non-financial companies in 12 European countries covered by the Thomson Reuters Eikon database between 2010 and 2019."
+        }
+      ]
+    },
+    "data_sources": {
+      "value": [
+        "Thomson Reuters Eikon — данные о составе советов директоров, финансовой отчётности и рынке",
+        "World Bank Gender Equality Index — страновой уровень гендерного равенства",
+        "World Bank World Development Indicators — макроэкономические контроли"
+      ],
+      "status": "found",
+      "evidence": [
+        {
+          "page": 4,
+          "section": "3.2. Data sources",
+          "quote": "Board composition data, financial statement items and market data were obtained from Thomson Reuters Eikon. Country-level gender equality was measured using the World Bank Gender Equality Index. Macroeconomic controls were taken from the World Bank World Development Indicators."
+        }
+      ]
+    },
+    "observations": {
+      "value": "11 232 наблюдения «фирма-год»",
+      "status": "found",
+      "evidence": [
+        {
+          "page": 4,
+          "section": "3.1. Sample",
+          "quote": "the final sample comprises 1,248 firms and 11,232 firm-year observations"
+        }
+      ]
+    }
+  },
+  "variables": {
+    "dependent": {
+      "value": [
+        "return on assets (ROA) — рентабельность активов, отношение чистого дохода к совокупным активам",
+        "Tobin's Q — альтернативная мера результативности: рыночная стоимость капитала плюс балансовая стоимость обязательств к совокупным активам"
+      ],
+      "status": "found",
+      "evidence": [
+        {
+          "page": 4,
+          "section": "3.3. Variables",
+          "quote": "The dependent variable is return on assets (ROA), computed as net income divided by total assets. As an alternative performance measure we use Tobin's Q, computed as the market value of equity plus the book value of liabilities divided by total assets."
+        }
+      ]
+    },
+    "independent": {
+      "value": [
+        "female_ratio — доля женщин в совете директоров (число женщин-директоров, делённое на размер совета)"
+      ],
+      "status": "found",
+      "evidence": [
+        {
+          "page": 4,
+          "section": "3.3. Variables",
+          "quote": "The main independent variable is the share of female directors (female_ratio), computed as the number of female board members divided by total board size."
+        }
+      ]
+    },
+    "controls": {
+      "value": [
+        "firm size — натуральный логарифм совокупных активов",
+        "leverage — отношение совокупного долга к совокупным активам",
+        "firm age — число лет с момента регистрации",
+        "board size — размер совета директоров",
+        "CEO duality — дамми совмещения должностей CEO и председателя совета"
+      ],
+      "status": "found",
+      "evidence": [
+        {
+          "page": 4,
+          "section": "3.3. Variables",
+          "quote": "Control variables include firm size (natural logarithm of total assets), leverage (total debt to total assets), firm age (years since incorporation), board size and a dummy for CEO duality."
+        }
+      ]
+    },
+    "other_variables": {
+      "value": [
+        "взаимодействие female_ratio × страновой Gender Equality Index (используется для проверки H2)"
+      ],
+      "status": "found",
+      "evidence": [
+        {
+          "page": 5,
+          "section": "4. Results",
+          "quote": "Column 2 of Table 2 adds the interaction between female_ratio and the country-level Gender Equality Index."
+        }
+      ]
+    }
+  },
+  "findings": {
+    "main_findings": {
+      "value": [
+        "Коэффициент при female_ratio составил 0,021 и значим на уровне 5 % (кластеризованная стандартная ошибка 0,009).",
+        "При среднем значении ROA 0,045 рост доли женщин на одно стандартное отклонение (0,11) связан с ростом ROA примерно на 0,0023, или около 5 % среднего значения.",
+        "Коэффициент взаимодействия female_ratio с индексом гендерного равенства положителен и значим на уровне 5 % (0,014; стандартная ошибка 0,006), что согласуется с H2.",
+        "Для Tobin's Q коэффициент при female_ratio равен 0,038 и значим на уровне 10 %; оценки системного GMM дают коэффициент 0,019, значимый на уровне 5 %; тест Хансена не отвергает валидность инструментов (p = 0,31).",
+        "Средняя доля женщин-директоров составляет 0,18 при существенном разбросе по странам: от 0,08 в Южной Европе до 0,34 в Скандинавии."
+      ],
+      "status": "found",
+      "evidence": [
+        {
+          "page": 5,
+          "section": "4. Results",
+          "quote": "Table 2 presents the main regression results. The coefficient on female_ratio is 0.021 and is significant at the 5% level (clustered standard error 0.009)."
+        },
+        {
+          "page": 5,
+          "section": "4. Results",
+          "quote": "implies that an increase in the share of female directors by one standard deviation (0.11) is associated with an increase in ROA of approximately 0.0023, or roughly 5% of the mean."
+        },
+        {
+          "page": 5,
+          "section": "4. Results",
+          "quote": "The interaction term is positive and significant at the 5% level (coefficient 0.014, standard error 0.006), which is consistent with H2."
+        },
+        {
+          "page": 5,
+          "section": "4. Results",
+          "quote": "The coefficient on female_ratio is 0.038 and is significant at the 10% level. The system GMM estimates in Table 4 confirm the positive association, with a coefficient of 0.019 significant at the 5% level, and the Hansen test does not reject the validity of the instruments (p = 0.31)."
+        },
+        {
+          "page": 5,
+          "section": "4. Results",
+          "quote": "The mean share of female directors is 0.18, with substantial variation across countries, ranging from 0.08 in Southern Europe to 0.34 in Scandinavia."
+        }
+      ]
+    },
+    "authors_conclusions": {
+      "value": [
+        "Советы директоров с более высокой долей женщин связаны с более высокой бухгалтерской рентабельностью европейских публичных компаний; связь устойчива к альтернативным мерам результативности и к оценке системным GMM.",
+        "Институциональный уровень гендерного равенства модерирует связь: в странах с более выраженными нормами гендерного равенства marginal-связь между представительством женщин и рентабельностью больше.",
+        "Результаты имеют практическое значение для инвесторов и регуляторов, рассматривающих состав совета как фактор корпоративного управления; эффективность реформ по разнообразию советов может зависеть от институционального контекста."
+      ],
+      "status": "found",
+      "evidence": [
+        {
+          "page": 6,
+          "section": "6. Conclusion",
+          "quote": "This paper documents a positive association between board gender diversity and firm financial performance for a panel of 1,248 European listed companies over 2010-2019. The association is robust to alternative performance measures and to a system GMM estimator."
+        },
+        {
+          "page": 6,
+          "section": "5. Discussion",
+          "quote": "In countries with stronger norms of gender equality, the marginal association between female representation and profitability is larger."
+        },
+        {
+          "page": 6,
+          "section": "6. Conclusion",
+          "quote": "The findings have practical implications for investors and regulators who consider board composition as a factor in corporate governance. They also suggest that the effectiveness of board diversity reforms may depend on the broader institutional context."
+        }
+      ]
+    }
+  },
+  "limitations": {
+    "value": [
+      "Выборка ограничена крупными публичными компаниями, представленными в Thomson Reuters Eikon, что ограничивает переносимость выводов на малые и средние предприятия.",
+      "Мера гендерного разнообразия трактует пол как бинарную характеристику и не учитывает другие измерения разнообразия совета (национальность, возраст, профессиональный опыт).",
+      "Несмотря на использование фиксированных эффектов и системного GMM, авторы не могут полностью исключить эндогенность состава совета директоров."
+    ],
+    "status": "found",
+    "evidence": [
+      {
+        "page": 7,
+        "section": "7. Limitations and Future Research",
+        "quote": "First, the sample is restricted to large listed firms covered by Thomson Reuters Eikon, which limits the generalisability of the findings to small and medium-sized enterprises."
+      },
+      {
+        "page": 7,
+        "section": "7. Limitations and Future Research",
+        "quote": "Second, our measure of gender diversity treats gender as a binary characteristic and does not account for other dimensions of board diversity such as nationality, age or professional background."
+      },
+      {
+        "page": 7,
+        "section": "7. Limitations and Future Research",
+        "quote": "Third, despite the use of fixed effects and system GMM, we cannot fully rule out endogeneity of board composition."
+      }
+    ]
+  },
+  "future_research": {
+    "value": [
+      "Расширить анализ на развивающиеся рынки.",
+      "Исследовать роль комитетов совета директоров в передаче эффекта разнообразия.",
+      "Использовать собранные вручную данные об индивидуальных характеристиках директоров, чтобы определить, какие типы женщин-директоров связаны с наблюдаемой связью."
+    ],
+    "status": "found",
+    "evidence": [
+      {
+        "page": 7,
+        "section": "7. Limitations and Future Research",
+        "quote": "Future research could extend the analysis to emerging markets, examine the role of board committees in transmitting the effect of diversity, and use hand-collected data on individual director characteristics to investigate which types of female directors drive the observed association."
+      }
+    ]
+  },
+  "contribution": {
+    "value": [
+      "Использование широкой кросс-страновой панели европейских компаний за недавний период.",
+      "Явная проверка модерирующей роли институциональной среды (уровня гендерного равенства).",
+      "Представление результатов, устойчивых к нескольким угрозам идентификации."
+    ],
+    "status": "found",
+    "evidence": [
+      {
+        "page": 2,
+        "section": "1. Introduction",
+        "quote": "We contribute to the literature by using a recent and broad cross-country panel, by explicitly testing the moderating role of the institutional environment, and by reporting results that are robust to several identification concerns."
+      }
+    ]
+  },
+  "processing": {
+    "agent": "1A",
+    "agent_version": "0.1",
+    "schema_version": "1.0",
+    "processed_at": "2026-11-05T23:15:42+03:00",
+    "extraction_status": "completed",
+    "warnings": [],
+    "needs_human_review": false
+  }
+}
