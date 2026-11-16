@@ -43,6 +43,9 @@ from research_platform.agents.agent_1b.contracts.verification_report import (
 from research_platform.agents.agent_1b.contracts.verification_report_v11 import (
     Agent1BVerificationReportV11,
 )
+from research_platform.domain.documents.models import SourceDocumentManifest
+from research_platform.domain.documents.parsed import ParsedDocument
+from research_platform.domain.documents.quality import QualityReport
 from research_platform.domain.evidence.models import EvidenceCandidateList
 
 __all__ = [
@@ -53,14 +56,19 @@ __all__ = [
     "FROZEN_AGENT_1A_PACKAGE_SCHEMA_PATH",
     "FROZEN_AGENT_1B_INPUT_SCHEMA_PATH",
     "FROZEN_AGENT_1B_REPORT_SCHEMA_PATH",
+    "PARSED_DOCUMENT_SCHEMA_PATH",
+    "QUALITY_REPORT_SCHEMA_PATH",
     "SCHEMA_DIALECT",
+    "SOURCE_MANIFEST_SCHEMA_PATH",
     "agent_1a_candidates_schema",
     "agent_1a_package_schema",
     "agent_1b_input_schema",
     "agent_1b_verification_report_schema",
-    "exportable_schemas",
     "frozen_schemas",
+    "parsed_document_schema",
+    "quality_report_schema",
     "serialize_schema",
+    "source_manifest_schema",
 ]
 
 SCHEMA_DIALECT: Final = "https://json-schema.org/draft/2020-12/schema"
@@ -74,6 +82,10 @@ AGENT_1A_PACKAGE_SCHEMA_PATH: Final = "contracts/agent_1a/v2.1/extraction_packag
 AGENT_1A_CANDIDATES_SCHEMA_PATH: Final = "contracts/agent_1a/v2.1/evidence_candidates.schema.json"
 AGENT_1B_INPUT_SCHEMA_PATH: Final = "contracts/agent_1b/v1.1/input_package.schema.json"
 AGENT_1B_REPORT_SCHEMA_PATH: Final = "contracts/agent_1b/v1.1/verification_report.schema.json"
+
+SOURCE_MANIFEST_SCHEMA_PATH: Final = "contracts/documents/v1/source_manifest.schema.json"
+PARSED_DOCUMENT_SCHEMA_PATH: Final = "contracts/documents/v1/parsed_document.schema.json"
+QUALITY_REPORT_SCHEMA_PATH: Final = "contracts/documents/v1/quality_report.schema.json"
 
 
 def _with_header(
@@ -174,12 +186,54 @@ def _frozen_schemas() -> dict[str, dict[str, Any]]:
     }
 
 
+def source_manifest_schema() -> dict[str, Any]:
+    """JSON Schema of ``SourceDocumentManifest`` (ingestion contract 1.0)."""
+    return _with_header(
+        SourceDocumentManifest.model_json_schema(mode="validation"),
+        schema_id="documents/v1/source_manifest.schema.json",
+        title="SourceDocumentManifest",
+        description=(
+            "Ingestion manifest of one received document version, contract 1.0: identity, "
+            "original bytes, detected encoding, language and processing status."
+        ),
+    )
+
+
+def parsed_document_schema() -> dict[str, Any]:
+    """JSON Schema of ``ParsedDocument`` (parsing contract 1.0)."""
+    return _with_header(
+        ParsedDocument.model_json_schema(mode="validation"),
+        schema_id="documents/v1/parsed_document.schema.json",
+        title="ParsedDocument",
+        description=(
+            "Parser-independent representation of a parsed source, contract 1.0: physical "
+            "pages, sections, elements, tables, figures and character-level provenance."
+        ),
+    )
+
+
+def quality_report_schema() -> dict[str, Any]:
+    """JSON Schema of ``QualityReport`` (quality gate contract 1.0)."""
+    return _with_header(
+        QualityReport.model_json_schema(mode="validation"),
+        schema_id="documents/v1/quality_report.schema.json",
+        title="QualityReport",
+        description=(
+            "Result of the deterministic Quality Gate, contract 1.0: named checks with "
+            "observed values and thresholds, per-page verdicts and the overall status."
+        ),
+    )
+
+
 def _current_schemas() -> dict[str, dict[str, Any]]:
     return {
         AGENT_1A_PACKAGE_SCHEMA_PATH: agent_1a_package_schema(),
         AGENT_1A_CANDIDATES_SCHEMA_PATH: agent_1a_candidates_schema(),
         AGENT_1B_INPUT_SCHEMA_PATH: agent_1b_input_schema(),
         AGENT_1B_REPORT_SCHEMA_PATH: agent_1b_verification_report_schema(),
+        SOURCE_MANIFEST_SCHEMA_PATH: source_manifest_schema(),
+        PARSED_DOCUMENT_SCHEMA_PATH: parsed_document_schema(),
+        QUALITY_REPORT_SCHEMA_PATH: quality_report_schema(),
     }
 
 

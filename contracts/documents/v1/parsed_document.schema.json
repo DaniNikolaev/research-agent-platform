@@ -1,0 +1,954 @@
+{
+  "$defs": {
+    "BBox": {
+      "additionalProperties": false,
+      "description": "Rectangle of an element inside one physical page.",
+      "properties": {
+        "origin": {
+          "$ref": "#/$defs/CoordinateOrigin",
+          "default": "unknown"
+        },
+        "page_height": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page Height"
+        },
+        "page_width": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page Width"
+        },
+        "system": {
+          "anyOf": [
+            {
+              "maxLength": 8192,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "System"
+        },
+        "unit": {
+          "$ref": "#/$defs/CoordinateUnit",
+          "default": "unknown"
+        },
+        "x0": {
+          "title": "X0",
+          "type": "number"
+        },
+        "x1": {
+          "title": "X1",
+          "type": "number"
+        },
+        "y0": {
+          "title": "Y0",
+          "type": "number"
+        },
+        "y1": {
+          "title": "Y1",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x0",
+        "y0",
+        "x1",
+        "y1"
+      ],
+      "title": "BBox",
+      "type": "object"
+    },
+    "CanonicalTextInfo": {
+      "additionalProperties": false,
+      "description": "Address of the canonical text and the rules used to build it.",
+      "properties": {
+        "artifact_uri": {
+          "maxLength": 512,
+          "pattern": "^artifact://documents/[a-z0-9][a-z0-9_\\-]{2,63}/runs/[A-Za-z0-9][A-Za-z0-9_\\-]{2,63}/[a-z][a-z0-9_]{2,63}/[a-z0-9][a-z0-9_\\-]{2,63}$",
+          "title": "Artifact Uri",
+          "type": "string"
+        },
+        "canonicalization_version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Canonicalization Version",
+          "type": "string"
+        },
+        "char_count": {
+          "minimum": 0,
+          "title": "Char Count",
+          "type": "integer"
+        },
+        "page_separator": {
+          "maxLength": 8,
+          "title": "Page Separator",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_uri",
+        "canonicalization_version",
+        "char_count",
+        "page_separator"
+      ],
+      "title": "CanonicalTextInfo",
+      "type": "object"
+    },
+    "CoordinateOrigin": {
+      "description": "Where the coordinate origin sits.",
+      "enum": [
+        "top_left",
+        "bottom_left",
+        "unknown"
+      ],
+      "title": "CoordinateOrigin",
+      "type": "string"
+    },
+    "CoordinateUnit": {
+      "description": "Unit of a bounding box.",
+      "enum": [
+        "pt",
+        "px",
+        "unknown"
+      ],
+      "title": "CoordinateUnit",
+      "type": "string"
+    },
+    "DocumentElement": {
+      "additionalProperties": false,
+      "description": "One addressable block of text or content.",
+      "properties": {
+        "bbox": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BBox"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "block_id": {
+          "pattern": "^[a-z0-9][a-z0-9_\\-]{2,63}$",
+          "title": "Block Id",
+          "type": "string"
+        },
+        "char_end": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Char End"
+        },
+        "char_start": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Char Start"
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Confidence"
+        },
+        "element_type": {
+          "$ref": "#/$defs/ElementType"
+        },
+        "level": {
+          "anyOf": [
+            {
+              "maximum": 6,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Level"
+        },
+        "metadata": {
+          "additionalProperties": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxProperties": 16,
+          "propertyNames": {
+            "maxLength": 256,
+            "minLength": 1
+          },
+          "title": "Metadata",
+          "type": "object"
+        },
+        "page_number": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page Number"
+        },
+        "reading_order": {
+          "minimum": 0,
+          "title": "Reading Order",
+          "type": "integer"
+        },
+        "section_id": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Section Id"
+        },
+        "source": {
+          "$ref": "#/$defs/ProvenanceSource"
+        },
+        "text": {
+          "default": "",
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "block_id",
+        "element_type",
+        "reading_order",
+        "source"
+      ],
+      "title": "DocumentElement",
+      "type": "object"
+    },
+    "DocumentSourceType": {
+      "description": "Source format of an ingested document.",
+      "enum": [
+        "pdf",
+        "txt"
+      ],
+      "title": "DocumentSourceType",
+      "type": "string"
+    },
+    "ElementType": {
+      "description": "Kinds of blocks the platform keeps.",
+      "enum": [
+        "heading",
+        "paragraph",
+        "list_item",
+        "table",
+        "table_caption",
+        "figure",
+        "figure_caption",
+        "footnote",
+        "header",
+        "footer",
+        "formula",
+        "unknown"
+      ],
+      "title": "ElementType",
+      "type": "string"
+    },
+    "FigureRecord": {
+      "additionalProperties": false,
+      "description": "Metadata of a figure or picture; content interpretation is out of scope.",
+      "properties": {
+        "bbox": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BBox"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "caption": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Caption"
+        },
+        "figure_id": {
+          "pattern": "^[a-z0-9][a-z0-9_\\-]{2,63}$",
+          "title": "Figure Id",
+          "type": "string"
+        },
+        "image_artifact_uri": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Image Artifact Uri"
+        },
+        "page_number": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page Number"
+        },
+        "reading_order": {
+          "minimum": 0,
+          "title": "Reading Order",
+          "type": "integer"
+        },
+        "section_id": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Section Id"
+        },
+        "source": {
+          "$ref": "#/$defs/ProvenanceSource"
+        }
+      },
+      "required": [
+        "figure_id",
+        "reading_order",
+        "source"
+      ],
+      "title": "FigureRecord",
+      "type": "object"
+    },
+    "PageRecord": {
+      "additionalProperties": false,
+      "description": "One physical page of a paginated source.",
+      "properties": {
+        "block_ids": {
+          "items": {
+            "pattern": "^[a-z0-9][a-z0-9_\\-]{2,63}$",
+            "type": "string"
+          },
+          "maxItems": 5000,
+          "title": "Block Ids",
+          "type": "array"
+        },
+        "char_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Char Count",
+          "type": "integer"
+        },
+        "has_images": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Has Images"
+        },
+        "has_native_text": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Has Native Text"
+        },
+        "image_area_ratio": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Image Area Ratio"
+        },
+        "metadata": {
+          "additionalProperties": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxProperties": 16,
+          "propertyNames": {
+            "maxLength": 256,
+            "minLength": 1
+          },
+          "title": "Metadata",
+          "type": "object"
+        },
+        "page_height": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page Height"
+        },
+        "page_number": {
+          "minimum": 1,
+          "title": "Page Number",
+          "type": "integer"
+        },
+        "page_width": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page Width"
+        },
+        "parser_page_reference": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parser Page Reference"
+        },
+        "rotation": {
+          "default": 0,
+          "maximum": 359,
+          "minimum": 0,
+          "title": "Rotation",
+          "type": "integer"
+        },
+        "status": {
+          "$ref": "#/$defs/PageStatus"
+        },
+        "text": {
+          "default": "",
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "page_number",
+        "status"
+      ],
+      "title": "PageRecord",
+      "type": "object"
+    },
+    "PageStatus": {
+      "description": "Extraction status of one physical page.",
+      "enum": [
+        "parsed",
+        "empty",
+        "no_text_layer",
+        "partial",
+        "failed"
+      ],
+      "title": "PageStatus",
+      "type": "string"
+    },
+    "ParsedSection": {
+      "additionalProperties": false,
+      "description": "A section of the document as the parser reported it.",
+      "properties": {
+        "level": {
+          "maximum": 6,
+          "minimum": 1,
+          "title": "Level",
+          "type": "integer"
+        },
+        "page_end": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page End"
+        },
+        "page_start": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page Start"
+        },
+        "parent_section_id": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Section Id"
+        },
+        "section_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Section Id",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 8192,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "section_id",
+        "title",
+        "level"
+      ],
+      "title": "ParsedSection",
+      "type": "object"
+    },
+    "ParserProvenance": {
+      "additionalProperties": false,
+      "description": "Which parser produced the document and under which settings.\n\nWithout these fields a stored parse cannot be reproduced or compared, so they are\nmandatory rather than optional metadata.",
+      "properties": {
+        "backend_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Backend Name",
+          "type": "string"
+        },
+        "model_assets_revision": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Assets Revision"
+        },
+        "ocr_enabled": {
+          "title": "Ocr Enabled",
+          "type": "boolean"
+        },
+        "parser_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Parser Name",
+          "type": "string"
+        },
+        "parser_options_hash": {
+          "pattern": "^[0-9a-f]{16,64}$",
+          "title": "Parser Options Hash",
+          "type": "string"
+        },
+        "parser_version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Parser Version",
+          "type": "string"
+        },
+        "pipeline_version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Pipeline Version",
+          "type": "string"
+        },
+        "table_extraction_enabled": {
+          "title": "Table Extraction Enabled",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "parser_name",
+        "parser_version",
+        "pipeline_version",
+        "parser_options_hash",
+        "backend_name",
+        "table_extraction_enabled",
+        "ocr_enabled"
+      ],
+      "title": "ParserProvenance",
+      "type": "object"
+    },
+    "ParsingStatus": {
+      "description": "Outcome of the parsing stage itself.",
+      "enum": [
+        "parsed",
+        "parsed_with_fallback",
+        "empty",
+        "failed"
+      ],
+      "title": "ParsingStatus",
+      "type": "string"
+    },
+    "ProvenanceSource": {
+      "description": "Which mechanism produced an element.",
+      "enum": [
+        "docling",
+        "pymupdf_fallback",
+        "txt_decoder"
+      ],
+      "title": "ProvenanceSource",
+      "type": "string"
+    },
+    "TableRecord": {
+      "additionalProperties": false,
+      "description": "A structured table, kept with its physical fragment and a deterministic text view.",
+      "properties": {
+        "bbox": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BBox"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "caption": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Caption"
+        },
+        "cells": {
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "maxItems": 10000,
+          "title": "Cells",
+          "type": "array"
+        },
+        "column_count": {
+          "minimum": 0,
+          "title": "Column Count",
+          "type": "integer"
+        },
+        "extraction_status": {
+          "default": "complete",
+          "pattern": "^(complete|partial|empty|failed)$",
+          "title": "Extraction Status",
+          "type": "string"
+        },
+        "has_header_row": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Has Header Row"
+        },
+        "page_number": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page Number"
+        },
+        "reading_order": {
+          "minimum": 0,
+          "title": "Reading Order",
+          "type": "integer"
+        },
+        "row_count": {
+          "minimum": 0,
+          "title": "Row Count",
+          "type": "integer"
+        },
+        "section_id": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Section Id"
+        },
+        "source": {
+          "$ref": "#/$defs/ProvenanceSource"
+        },
+        "table_id": {
+          "pattern": "^[a-z0-9][a-z0-9_\\-]{2,63}$",
+          "title": "Table Id",
+          "type": "string"
+        },
+        "text_representation": {
+          "default": "",
+          "title": "Text Representation",
+          "type": "string"
+        }
+      },
+      "required": [
+        "table_id",
+        "reading_order",
+        "row_count",
+        "column_count",
+        "source"
+      ],
+      "title": "TableRecord",
+      "type": "object"
+    }
+  },
+  "$id": "https://research-agent-platform.local/contracts/documents/v1/parsed_document.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Parser-independent representation of a parsed source, contract 1.0: physical pages, sections, elements, tables, figures and character-level provenance.",
+  "properties": {
+    "canonical_text": {
+      "$ref": "#/$defs/CanonicalTextInfo"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "document_contract_version": {
+      "default": "1.0",
+      "pattern": "^\\d+\\.\\d+$",
+      "title": "Document Contract Version",
+      "type": "string"
+    },
+    "document_id": {
+      "pattern": "^[a-z0-9][a-z0-9_\\-]{2,63}$",
+      "title": "Document Id",
+      "type": "string"
+    },
+    "elements": {
+      "items": {
+        "$ref": "#/$defs/DocumentElement"
+      },
+      "maxItems": 50000,
+      "title": "Elements",
+      "type": "array"
+    },
+    "figures": {
+      "items": {
+        "$ref": "#/$defs/FigureRecord"
+      },
+      "maxItems": 2000,
+      "title": "Figures",
+      "type": "array"
+    },
+    "language": {
+      "pattern": "^(ru|en|unknown)$",
+      "title": "Language",
+      "type": "string"
+    },
+    "page_count": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Page Count"
+    },
+    "pages": {
+      "items": {
+        "$ref": "#/$defs/PageRecord"
+      },
+      "maxItems": 2000,
+      "title": "Pages",
+      "type": "array"
+    },
+    "parser": {
+      "$ref": "#/$defs/ParserProvenance"
+    },
+    "parsing_status": {
+      "$ref": "#/$defs/ParsingStatus"
+    },
+    "run_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "sections": {
+      "items": {
+        "$ref": "#/$defs/ParsedSection"
+      },
+      "maxItems": 500,
+      "title": "Sections",
+      "type": "array"
+    },
+    "source_artifact_uri": {
+      "maxLength": 512,
+      "pattern": "^artifact://documents/[a-z0-9][a-z0-9_\\-]{2,63}/runs/[A-Za-z0-9][A-Za-z0-9_\\-]{2,63}/[a-z][a-z0-9_]{2,63}/[a-z0-9][a-z0-9_\\-]{2,63}$",
+      "title": "Source Artifact Uri",
+      "type": "string"
+    },
+    "source_sha256": {
+      "maxLength": 64,
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Source Sha256",
+      "type": "string"
+    },
+    "source_type": {
+      "$ref": "#/$defs/DocumentSourceType"
+    },
+    "tables": {
+      "items": {
+        "$ref": "#/$defs/TableRecord"
+      },
+      "maxItems": 1000,
+      "title": "Tables",
+      "type": "array"
+    }
+  },
+  "required": [
+    "document_id",
+    "run_id",
+    "source_sha256",
+    "source_type",
+    "language",
+    "parser",
+    "parsing_status",
+    "canonical_text",
+    "source_artifact_uri",
+    "created_at"
+  ],
+  "title": "ParsedDocument",
+  "type": "object"
+}

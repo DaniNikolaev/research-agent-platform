@@ -65,7 +65,7 @@ def test_documented_commands_exist() -> None:
         for action in parser._actions
         if getattr(action, "choices", None)
     }
-    assert subcommands == {"command": ["agent1a", "config", "contracts", "platform"]}
+    assert subcommands == {"command": ["agent1a", "config", "contracts", "document", "platform"]}
     for forbidden in ("process", "run-agent", "parse", "index"):
         with pytest.raises(SystemExit):
             main([forbidden])

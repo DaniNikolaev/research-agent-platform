@@ -267,3 +267,68 @@ SMOKE TEST ONLY - NO SCIENTIFIC DOCUMENT WAS PROCESSED
 закрытия: три пространства адресации артефактов, атомарный sidecar метаданных); Python `3.13.18`,
 uv `0.13.7`, langgraph `1.2.20`, pydantic `2.14.3`, ruff/ty/экспорт схем — без замечаний.
 Итог закрытия — [`docs/reports/post_iteration_1_technical_closure.md`](docs/reports/post_iteration_1_technical_closure.md).
+
+---
+
+## Итерация 2 — обработка документов
+
+Итерация 2 добавила конвейер обработки **одного** документа: приём (limits, SHA-256, стабильный
+`document_id`), разбор (Docling для цифровых PDF, блочный разбор для TXT), канонический текст с
+символьными диапазонами, детерминированный Quality Gate и неизменяемые артефакты на каждый запуск.
+LLM в конвейере не участвует. OCR **не реализован**: сканированные страницы только детектируются,
+а документ без текста вообще завершается ошибкой до Quality Gate (код 1), а не управляемой
+остановкой.
+
+### Две команды
+
+```powershell
+# PDF: группа parsing обязательна — Docling и PyMuPDF объявлены именно в ней
+uv run --group parsing research-platform document process --input D:\papers\article.pdf
+
+# TXT: группа parsing не нужна
+uv run research-platform document process --input D:\notes\note.txt
+
+# отчёт о качестве по сохранённым артефактам запуска
+uv run research-platform document report --run-id run_20261114_120000_a1b2c3
+```
+
+Обе команды принимают `--project-root PATH` (корень, относительно которого читаются `config/` и
+`data/`) и `--json`; `document process` дополнительно принимает `--dry-run`.
+
+**Почему PDF требует `--group parsing`.** `docling` и `pymupdf` объявлены в группе зависимостей
+`parsing`, а не в основных зависимостях пакета. Без `--group parsing` окружение синхронизируется без
+них, и разбор PDF невозможен. Обратная сторона: `uv run` без этой группы может удалить
+установленные пакеты группы `parsing` — после такого запуска нужен `uv sync --group parsing`.
+
+### Коды возврата `document process`
+
+| Код | Значение |
+|---|---|
+| 0 | `passed` или `passed_with_warnings` — документ готов к дальнейшим этапам |
+| 1 | провал: ошибка входа/приёма/разбора или вердикт `failed` |
+| 2 | ошибка конфигурации |
+| 3 | инфраструктура или парсер недоступны (объявлено; в текущей реализации путь практически недостижим) |
+| 4 | управляемая остановка: `requires_ocr` или `needs_human_review` |
+
+### Что уже проверено, а что нет
+
+Проверено: TXT-файл → `passed`, код 0; одностраничный цифровой PDF через настоящий Docling →
+`passed`, код 0; `document report` для запуска в том же корне проекта.
+
+Не проверено: сканированные PDF (нет OCR-движка), многостраничные и двухколоночные документы сверх
+единичной пробы, качество извлечения таблиц на реальных статьях. Модельные веса Docling лежат в
+`%USERPROFILE%\.cache\huggingface` (≈505 MB по замеру каталогов кеша), вне репозитория; лицензии
+весов не проверены.
+
+Полный отчёт — [`docs/iteration_reports/iteration_2_report.md`](docs/iteration_reports/iteration_2_report.md).
+Документация конвейера:
+[`docs/contracts/document_manifest.md`](docs/contracts/document_manifest.md),
+[`docs/contracts/parsed_document.md`](docs/contracts/parsed_document.md),
+[`docs/contracts/document_provenance.md`](docs/contracts/document_provenance.md),
+[`docs/contracts/quality_report.md`](docs/contracts/quality_report.md),
+[`docs/development/document_ingestion.md`](docs/development/document_ingestion.md),
+[`docs/development/document_parsing.md`](docs/development/document_parsing.md),
+[`docs/development/quality_gate.md`](docs/development/quality_gate.md),
+[`docs/development/document_parser_configuration.md`](docs/development/document_parser_configuration.md),
+[`docs/development/ocr_engine_evaluation.md`](docs/development/ocr_engine_evaluation.md),
+[`docs/development/limitations.md`](docs/development/limitations.md).

@@ -73,6 +73,7 @@ tmp_path_retention_policy = "none"
 markers = [
   "contract: contract / JSON Schema compatibility tests",
   "architecture: dependency-direction and boundary tests",
+  "parsing: tests that need the optional parsing dependency group (Docling, PyMuPDF)",
 ]
 
 [tool.coverage.run]

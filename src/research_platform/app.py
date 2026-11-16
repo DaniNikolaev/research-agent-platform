@@ -31,6 +31,10 @@ from research_platform.application.services.configuration_service import Configu
 from research_platform.application.services.health_check import HealthCheckService
 from research_platform.application.services.redaction import Redactor
 from research_platform.application.services.run_manager import RunManager
+from research_platform.composition.document_pipeline import (
+    DocumentPipeline,
+    build_document_pipeline,
+)
 from research_platform.composition.runtime_factory import RuntimeFactory
 from research_platform.config import (
     CheckpointerKind,
@@ -70,6 +74,7 @@ class ApplicationContext:
     checkpoint_provider: CheckpointProviderPort | None
     model_gateway: ModelGatewayPort | None
     runtime_factory: RuntimeFactory
+    document_pipeline: DocumentPipeline
     health_check: HealthCheckService
     _closers: list[Callable[[], None]]
 
@@ -192,6 +197,13 @@ class ApplicationBootstrap:
             runtime_builder=lambda: runtime_factory.build_agent_1a(),
         )
 
+        document_pipeline = build_document_pipeline(
+            settings=settings,
+            artifacts=artifact_service,
+            run_manager=run_manager,
+            logger=logger,
+        )
+
         closers: list[Callable[[], None]] = [
             artifact_store.close,
             run_repository.close,
@@ -218,6 +230,7 @@ class ApplicationBootstrap:
             checkpoint_provider=checkpoint_provider,
             model_gateway=model_gateway,
             runtime_factory=runtime_factory,
+            document_pipeline=document_pipeline,
             health_check=health_check,
             _closers=closers,
         )

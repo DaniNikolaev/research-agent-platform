@@ -1,6 +1,6 @@
-# Архитектура платформы `research-agent-platform` (состояние после Итерации 1)
+# Архитектура платформы `research-agent-platform` (состояние после Итерации 2)
 
-**Версия:** 1.2 · **Дата:** 2026-11-12 · **Основание:** `ADD_MultiAgent_Research_Platform_v1.0`, ТЗ Итерации 1, `docs/iteration_reports/iteration_1_report.md` · **Статус:** платформенный каркас исполняется; функциональная обработка документов — следующие итерации.
+**Версия:** 1.3 · **Дата:** 2026-11-14 · **Основание:** `ADD_MultiAgent_Research_Platform_v1.0`, ТЗ Итерации 2, `docs/iteration_reports/iteration_1_report.md`, `docs/iteration_reports/iteration_2_report.md` · **Статус:** каркас исполняется; добавлен конвейер обработки документов (приём, разбор цифровых PDF и TXT, Quality Gate); OCR, retrieval и извлечение полей — следующие итерации.
 
 Документ фиксирует **карту модулей и направления зависимостей** в том виде, в котором они
 реализованы. Архитектурные решения и их обоснование — в
@@ -62,30 +62,34 @@
 
 | Путь | Назначение | Состояние |
 |---|---|---|
-| `cli.py` | единственная точка входа: 5 команд, коды возврата 0–4 | готово |
+| `cli.py` | единственная точка входа: `--version`, `--help`, `contracts validate`, `config validate`, `platform check`, `document process`, `document report`, `agent1a workflow-smoke`; коды 0–4 | готово |
 | `app.py` | `ApplicationBootstrap` → `ApplicationContext`, закрытие ресурсов | готово |
-| `config.py` | типизированные настройки: 8 секций, YAML + env, валидация | готово |
+| `config.py` | типизированные настройки: 12 секций (8 платформенных + 4 документных), YAML + env, валидация | готово |
 | `composition/runtime_factory.py` | сборка LangGraph-рантайма из сервисов | готово |
+| `composition/document_pipeline.py` | сборка конвейера документов (адаптеры + сервисы) | готово |
 | `domain/base.py` | контрактный базовый тип (`extra="forbid"`, `frozen`, UTC) | готово |
-| `domain/documents/` | `DocumentManifest` | готово |
+| `domain/documents/` | `DocumentManifest` (2.1), `SourceDocumentManifest` 1.0, `ParsedDocument` 1.0, `QualityReport` 1.0, элементы, провенанс, идентичность | готово |
 | `domain/cards/` | карточка: 9 разделов, 27 полей | готово (контракт) |
 | `domain/evidence/` | evidence 2.1 + frozen 2.0 + правила ledger | готово (контракт) |
 | `domain/coverage/` | Coverage Trail и правила `not_found` | готово (контракт) |
 | `domain/runs/` | `RunRecord`, `RunStatus`, `ALLOWED_TRANSITIONS`, `RunMetadata`, артефакты, генераторы идентификаторов | готово |
 | `domain/validation/` | техническая валидация + плейсхолдер семантики | готово |
-| `application/ports/` | 6 портов: run repository, artifact store, checkpoint, logging, model gateway, document repository | готово |
-| `application/services/` | RunManager, ArtifactService, ConfigurationService, HealthCheckService, Redaction | готово |
+| `application/ports/` | 7 модулей портов: run repository, artifact store, checkpoint, logging, model gateway, document repository, document pipeline (парсер, инспектор, декодер, OCR, чтение источника) | готово |
+| `application/services/` | RunManager, ArtifactService, ConfigurationService, HealthCheckService, Redaction; добавлено в Итерации 2: DocumentIngestionService, DocumentParsingService, QualityGateService, LanguageDetector | готово |
 | `platform/artifact_store/` | локальное файловое хранилище (атомарность, sha256, path safety) | готово |
 | `platform/persistence/` | `InMemoryRunRepository` | готово |
 | `platform/checkpointing/` | `InMemoryCheckpointProvider` (LangGraph `InMemorySaver`) | готово |
 | `platform/models/` | fake-адаптеры модели (offline) | готово |
 | `platform/observability/` | JSONL-журнал с редактированием секретов | готово |
-| `platform/contracts/` | экспорт 7 JSON Schema | готово |
+| `platform/contracts/` | экспорт 10 JSON Schema (7 прежних + 3 документных) | готово |
 | `agents/agent_1a/graph/` | 4 узла, компоновка графа, раннер, фабрика | готово (технический) |
 | `agents/agent_1a/contracts/` | пакет 2.1, пакет 2.0 (frozen), GraphState, адаптер v1→v2 | готово |
 | `agents/agent_1b/contracts/` | вход 1.1/1.0, отчёт 1.1/1.0 | готово |
 | `platform/{model_gateway,run_manager}/` | дом реальных адаптеров | заглушки (объяснены) |
-| парсинг PDF/TXT, OCR, RAG, резолвер, PostgreSQL, FastAPI | — | следующие итерации |
+| `platform/document_parsing/` | адаптеры разбора: Docling (PDF), PyMuPDF (инспекция/fallback), TXT (декодер, блочный парсер) | готово |
+| `platform/documents/` | чтение пользовательского источника с проверками | готово |
+| `workflows/document_*` | граф обработки документа, состояние, рантайм-кэш | готово |
+| OCR, RAG, резолвер, PostgreSQL, FastAPI | — | следующие итерации |
 
 ---
 
@@ -253,7 +257,90 @@ quality gate, chunking, embeddings, retrieval, reranking, Evidence Resolver, и�
 полей карточки, реальный Model Gateway adapter, PostgreSQL/ORM/миграции, FastAPI, Docker,
 Agent 1B workflow, durable checkpointing, обработка реальных статей.
 
+> **Поправка Итерации 2.** Парсинг цифровых PDF и TXT и Quality Gate реализованы — см. §11.
+> Всё остальное из этого списка по-прежнему не реализовано; OCR остаётся заблокированным
+> решением владельца (`OI-008`).
+
 Соответствие итерациям ADD §22: 0 — контракты и каркас (завершено), 1 — platform skeleton
-(завершено, см. `docs/iteration_reports/iteration_1_report.md`), 2 — parsing/quality gate,
+(завершено, см. `docs/iteration_reports/iteration_1_report.md`), 2 — parsing/quality gate
+(завершено с условиями, см. `docs/iteration_reports/iteration_2_report.md`),
 3 — LangGraph workflow, 4 — RAG и Evidence Resolver, 5 — validation и пакет для 1B,
 6 — evaluation.
+
+---
+
+## 11. Document pipeline (Итерация 2)
+
+Отдельный конвейер обработки одного документа: приём → разбор → канонический текст → контроль
+качества. Он **не** является частью графа Agent 1A и не связан с моделью: ни одного вызова LLM в
+нём нет.
+
+### 11.1. Размещение по слоям
+
+```text
+domain/documents/            identity · models (SourceDocumentManifest, DocumentManifest)
+                             elements · parsed · quality · provenance
+        ▲                    (чистые контракты: ни ФС, ни Docling, ни LangGraph)
+        │
+application/ports/document_pipeline.py
+        ▲                    DocumentParserPort · DocumentInspectorPort · TextDecoderPort
+        │                    OcrEnginePort (объявлен, реализации нет) · SourceReaderPort
+application/services/        document_ingestion · document_parsing · quality_gate
+                             language_detection · document_errors · artifact_ids
+        ▲
+platform/                    document_parsing/docling · document_parsing/pymupdf
+                             document_parsing/txt · documents/file_reader
+        ▲                    (единственное место, где импортируются Docling и PyMuPDF)
+composition/document_pipeline.py
+        ▲                    build_document_pipeline · document_dependencies
+workflows/                   document_state · document_workflow (LangGraph)
+        ▲
+cli.py                       document process · document report
+```
+
+### 11.2. Поток
+
+```text
+validate_input → initialize_run → ingest_source → inspect_document
+      → route_by_format ─┬→ parse_pdf
+                         └→ parse_txt
+      → build_canonical_document → run_quality_gate
+      → persist_parsed_artifacts → finalize_run
+```
+
+| Этап | Что происходит | Артефакты |
+|---|---|---|
+| ingestion | allow-list, лимиты, сигнатура, SHA-256, `document_id`, коллизия, инспекция PDF, декодирование TXT, сохранение оригинала, повторная проверка источника | `original_document`, `handoff_package` (манифест) |
+| parsing | Docling (PDF) или блочный разбор (TXT); fallback PyMuPDF только при техническом отказе | `parsed_document` (json) |
+| canonical text | детерминированная сборка текста и символьных диапазонов | `parsed_document` (text/plain) |
+| quality gate | именованные проверки, постраничные статусы, вердикт | `quality_report`, `run_log` (диагностика) |
+
+Крупные объекты (байты источника, `ParsedDocument`, отчёт) передаются между узлами через
+`DocumentRuntimeCache` и **не** попадают в состояние графа: состояние остаётся компактным и
+JSON-сериализуемым.
+
+### 11.3. Правило границы
+
+| Правило | Проверка |
+|---|---|
+| `domain` не знает ни Docling, ни PyMuPDF, ни файловой системы | `tests/unit/test_import_boundaries.py` |
+| `application` работает с **байтами** через порты и не импортирует `platform` | там же |
+| Docling и PyMuPDF импортируются только в `platform/document_parsing/**` | `grep` по `src/` + правила теста границ |
+| тип парсера не пересекает границу: адаптер возвращает `ParsedPayload` из доменных моделей | код адаптеров |
+| `composition/` — единственное место, где известны и сервисы, и адаптеры | ревью + правило 3 |
+| существующий граф `agent1a workflow-smoke` не тронут и продолжает исполняться | `tests/unit/test_runtime_graph.py` |
+
+Практическое следствие: замена Docling на другой парсер не затрагивает контракты, артефакты и
+Quality Gate — меняется только адаптер в `platform/` и, возможно, значения провенанса.
+
+### 11.4. Документация конвейера
+
+[`../contracts/document_manifest.md`](../contracts/document_manifest.md),
+[`../contracts/parsed_document.md`](../contracts/parsed_document.md),
+[`../contracts/document_provenance.md`](../contracts/document_provenance.md),
+[`../contracts/quality_report.md`](../contracts/quality_report.md),
+[`../development/document_ingestion.md`](../development/document_ingestion.md),
+[`../development/document_parsing.md`](../development/document_parsing.md),
+[`../development/quality_gate.md`](../development/quality_gate.md),
+[`../development/document_parser_configuration.md`](../development/document_parser_configuration.md),
+[`../iteration_reports/iteration_2_report.md`](../iteration_reports/iteration_2_report.md).

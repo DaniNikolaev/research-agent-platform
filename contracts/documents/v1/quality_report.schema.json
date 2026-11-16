@@ -1,0 +1,484 @@
+{
+  "$defs": {
+    "CheckSeverity": {
+      "description": "How much a finding matters.",
+      "enum": [
+        "info",
+        "minor",
+        "major",
+        "critical"
+      ],
+      "title": "CheckSeverity",
+      "type": "string"
+    },
+    "CheckStatus": {
+      "description": "Outcome of a single check.",
+      "enum": [
+        "pass",
+        "warning",
+        "failed",
+        "not_applicable"
+      ],
+      "title": "CheckStatus",
+      "type": "string"
+    },
+    "PageQualityRecord": {
+      "additionalProperties": false,
+      "description": "Per-page measurements and verdict.",
+      "properties": {
+        "checks": {
+          "items": {
+            "$ref": "#/$defs/QualityCheckResult"
+          },
+          "maxItems": 64,
+          "title": "Checks",
+          "type": "array"
+        },
+        "control_char_ratio": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Control Char Ratio",
+          "type": "number"
+        },
+        "figure_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Figure Count",
+          "type": "integer"
+        },
+        "has_text_layer": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Has Text Layer"
+        },
+        "image_area_ratio": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Image Area Ratio"
+        },
+        "page_number": {
+          "minimum": 1,
+          "title": "Page Number",
+          "type": "integer"
+        },
+        "page_status": {
+          "$ref": "#/$defs/PageQualityStatus"
+        },
+        "replacement_char_ratio": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Replacement Char Ratio",
+          "type": "number"
+        },
+        "scan_suspected": {
+          "default": false,
+          "title": "Scan Suspected",
+          "type": "boolean"
+        },
+        "table_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Table Count",
+          "type": "integer"
+        },
+        "text_block_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Text Block Count",
+          "type": "integer"
+        },
+        "text_char_count": {
+          "minimum": 0,
+          "title": "Text Char Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "page_number",
+        "page_status",
+        "text_char_count"
+      ],
+      "title": "PageQualityRecord",
+      "type": "object"
+    },
+    "PageQualityStatus": {
+      "description": "Per-page quality verdict.",
+      "enum": [
+        "ok",
+        "low_text",
+        "image_dominant",
+        "suspected_garbled",
+        "ocr_required",
+        "blank_or_unknown",
+        "parse_failed"
+      ],
+      "title": "PageQualityStatus",
+      "type": "string"
+    },
+    "QualityCheckResult": {
+      "additionalProperties": false,
+      "description": "One named check with its observed value and (when relevant) its threshold.",
+      "properties": {
+        "block_id": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z0-9][a-z0-9_\\-]{2,63}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Block Id"
+        },
+        "check_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Check Id",
+          "type": "string"
+        },
+        "check_version": {
+          "default": "1.0",
+          "pattern": "^\\d+\\.\\d+$",
+          "title": "Check Version",
+          "type": "string"
+        },
+        "details": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "maxProperties": 16,
+          "propertyNames": {
+            "maxLength": 256,
+            "minLength": 1
+          },
+          "title": "Details",
+          "type": "object"
+        },
+        "message": {
+          "maxLength": 8192,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "observed_value": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observed Value"
+        },
+        "page_number": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page Number"
+        },
+        "severity": {
+          "$ref": "#/$defs/CheckSeverity"
+        },
+        "status": {
+          "$ref": "#/$defs/CheckStatus"
+        },
+        "threshold": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Threshold"
+        }
+      },
+      "required": [
+        "check_id",
+        "status",
+        "severity",
+        "message"
+      ],
+      "title": "QualityCheckResult",
+      "type": "object"
+    },
+    "QualityPolicy": {
+      "additionalProperties": false,
+      "description": "Versioned thresholds used by the gate.\n\nDefaults are conservative starting values, explicitly labelled as heuristics; the\nreport records the values that were actually applied.",
+      "properties": {
+        "detect_garbled_text": {
+          "default": true,
+          "title": "Detect Garbled Text",
+          "type": "boolean"
+        },
+        "image_dominant_area_ratio": {
+          "default": 0.85,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Image Dominant Area Ratio",
+          "type": "number"
+        },
+        "low_text_chars_per_page": {
+          "default": 120,
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Low Text Chars Per Page",
+          "type": "integer"
+        },
+        "max_control_char_ratio": {
+          "default": 0.01,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Max Control Char Ratio",
+          "type": "number"
+        },
+        "max_parser_warnings": {
+          "default": 20,
+          "maximum": 1000,
+          "minimum": 0,
+          "title": "Max Parser Warnings",
+          "type": "integer"
+        },
+        "max_replacement_char_ratio": {
+          "default": 0.02,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Max Replacement Char Ratio",
+          "type": "number"
+        },
+        "minimum_meaningful_text_chars": {
+          "default": 50,
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Minimum Meaningful Text Chars",
+          "type": "integer"
+        },
+        "page_count_mismatch_is_critical": {
+          "default": true,
+          "title": "Page Count Mismatch Is Critical",
+          "type": "boolean"
+        },
+        "policy_version": {
+          "default": "1.0",
+          "pattern": "^\\d+\\.\\d+$",
+          "title": "Policy Version",
+          "type": "string"
+        },
+        "require_page_provenance": {
+          "default": true,
+          "title": "Require Page Provenance",
+          "type": "boolean"
+        },
+        "verify_character_ranges": {
+          "default": true,
+          "title": "Verify Character Ranges",
+          "type": "boolean"
+        },
+        "verify_table_structure": {
+          "default": true,
+          "title": "Verify Table Structure",
+          "type": "boolean"
+        },
+        "warn_on_empty_pages": {
+          "default": true,
+          "title": "Warn On Empty Pages",
+          "type": "boolean"
+        }
+      },
+      "title": "QualityPolicy",
+      "type": "object"
+    },
+    "QualityStatus": {
+      "description": "Outcome of the Quality Gate for a whole document.",
+      "enum": [
+        "passed",
+        "passed_with_warnings",
+        "requires_ocr",
+        "needs_human_review",
+        "failed"
+      ],
+      "title": "QualityStatus",
+      "type": "string"
+    }
+  },
+  "$id": "https://research-agent-platform.local/contracts/documents/v1/quality_report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Result of the deterministic Quality Gate, contract 1.0: named checks with observed values and thresholds, per-page verdicts and the overall status.",
+  "properties": {
+    "checks": {
+      "items": {
+        "$ref": "#/$defs/QualityCheckResult"
+      },
+      "maxItems": 500,
+      "title": "Checks",
+      "type": "array"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "document_id": {
+      "pattern": "^[a-z0-9][a-z0-9_\\-]{2,63}$",
+      "title": "Document Id",
+      "type": "string"
+    },
+    "errors_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Errors Count",
+      "type": "integer"
+    },
+    "extra": {
+      "additionalProperties": true,
+      "maxProperties": 16,
+      "propertyNames": {
+        "maxLength": 256,
+        "minLength": 1
+      },
+      "title": "Extra",
+      "type": "object"
+    },
+    "ocr_required_pages": {
+      "items": {
+        "type": "integer"
+      },
+      "maxItems": 2000,
+      "title": "Ocr Required Pages",
+      "type": "array"
+    },
+    "overall_status": {
+      "$ref": "#/$defs/QualityStatus"
+    },
+    "page_count": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Page Count"
+    },
+    "page_results": {
+      "items": {
+        "$ref": "#/$defs/PageQualityRecord"
+      },
+      "maxItems": 2000,
+      "title": "Page Results",
+      "type": "array"
+    },
+    "parsed_document_version": {
+      "pattern": "^\\d+\\.\\d+$",
+      "title": "Parsed Document Version",
+      "type": "string"
+    },
+    "parser_warnings": {
+      "items": {
+        "maxLength": 8192,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 200,
+      "title": "Parser Warnings",
+      "type": "array"
+    },
+    "policy": {
+      "$ref": "#/$defs/QualityPolicy"
+    },
+    "processed_pages": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Processed Pages",
+      "type": "integer"
+    },
+    "quality_policy_version": {
+      "pattern": "^\\d+\\.\\d+$",
+      "title": "Quality Policy Version",
+      "type": "string"
+    },
+    "run_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "source_sha256": {
+      "maxLength": 64,
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Source Sha256",
+      "type": "string"
+    },
+    "summary": {
+      "maxLength": 8192,
+      "minLength": 1,
+      "title": "Summary",
+      "type": "string"
+    },
+    "warnings_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Warnings Count",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "document_id",
+    "run_id",
+    "source_sha256",
+    "parsed_document_version",
+    "quality_policy_version",
+    "overall_status",
+    "summary",
+    "created_at"
+  ],
+  "title": "QualityReport",
+  "type": "object"
+}

@@ -50,4 +50,4 @@ def test_frozen_and_current_schemas_do_not_overlap() -> None:
     frozen = set(frozen_schemas())
     current = set(exportable_schemas()) - frozen
     assert frozen.isdisjoint(current)
-    assert len(current) == 4
+    assert len(current) == 7

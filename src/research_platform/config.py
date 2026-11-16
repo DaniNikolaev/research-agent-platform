@@ -29,15 +29,21 @@ __all__ = [
     "ENVIRONMENT_OVERRIDES",
     "AppSettings",
     "CheckpointerKind",
+    "DoclingSettings",
+    "DocumentIngestionSettings",
+    "DocumentParsingSettings",
     "Environment",
     "LogFormat",
     "LogLevel",
+    "ModelAssetsSettings",
     "ModelProfileSettings",
     "ModelsSettings",
     "ObservabilitySettings",
+    "OcrSettings",
     "PathsSettings",
     "PlatformSettings",
     "PrivacySettings",
+    "QualityGateSettings",
     "RuntimeSettings",
     "SettingsError",
     "StorageSettings",
@@ -327,6 +333,148 @@ class ObservabilitySettings(ContractModel):
     log_retention_days: Annotated[int, Field(ge=1, le=3650)] = 30
 
 
+class DocumentIngestionSettings(ContractModel):
+    """Limits applied to a user-supplied source before anything is stored or parsed."""
+
+    allowed_extensions: Annotated[
+        list[Annotated[str, StringConstraints(pattern=r"^\.[a-z]+$")]],
+        Field(min_length=1, max_length=8),
+    ] = Field(default_factory=lambda: [".pdf", ".txt"])
+    max_pdf_size_mb: Annotated[int, Field(gt=0, le=2000)] = 100
+    max_txt_size_mb: Annotated[int, Field(gt=0, le=2000)] = 20
+    max_pdf_pages: Annotated[int, Field(gt=0, le=20_000)] = 500
+    calculate_sha256: bool = True
+    verify_source_unchanged: bool = True
+
+    @model_validator(mode="after")
+    def _only_supported_extensions(self) -> DocumentIngestionSettings:
+        unsupported = sorted(set(self.allowed_extensions) - {".pdf", ".txt"})
+        if unsupported:
+            raise ValueError(
+                f"unsupported document extensions {unsupported}; this iteration accepts PDF "
+                "and TXT only"
+            )
+        return self
+
+    @property
+    def max_size_bytes(self) -> dict[str, int]:
+        """Per-extension size limit in bytes."""
+        return {
+            ".pdf": self.max_pdf_size_mb * 1024 * 1024,
+            ".txt": self.max_txt_size_mb * 1024 * 1024,
+        }
+
+
+class ModelAssetsSettings(ContractModel):
+    """Policy for parser model weights."""
+
+    allow_unpinned: bool = False
+    allow_auto_download: bool = False
+    """Must stay false in this iteration: assets are downloaded only on explicit approval."""
+
+    cache_dir: str | None = None
+    """Optional explicit cache location; the environment default is used when null."""
+
+
+class DoclingSettings(ContractModel):
+    """Docling pipeline flags that change the extraction result."""
+
+    do_ocr: bool = False
+    do_table_structure: bool = True
+    generate_picture_images: bool = False
+    do_cell_matching: bool = True
+
+    @model_validator(mode="after")
+    def _ocr_requires_an_approved_engine(self) -> DoclingSettings:
+        if self.do_ocr:
+            raise ValueError(
+                "docling.do_ocr must stay false: no OCR engine is approved by the owner "
+                "(OI-008). Enable OCR only together with an 'ocr' section engine_id."
+            )
+        return self
+
+
+class DocumentParsingSettings(ContractModel):
+    """Which parser is primary, which is the fallback, and what is preserved."""
+
+    default_pdf_parser: Annotated[str, StringConstraints(pattern=r"^(docling|pymupdf)$")] = (
+        "docling"
+    )
+    fallback_pdf_parser: Annotated[str, StringConstraints(pattern=r"^(pymupdf|none)$")] = "pymupdf"
+    docling: DoclingSettings = Field(default_factory=DoclingSettings)
+    model_assets: ModelAssetsSettings = Field(default_factory=ModelAssetsSettings)
+    preserve_page_provenance: bool = True
+    preserve_bbox: bool = True
+    preserve_reading_order: bool = True
+
+    @model_validator(mode="after")
+    def _fallback_differs_from_primary(self) -> DocumentParsingSettings:
+        if self.fallback_pdf_parser == self.default_pdf_parser:
+            raise ValueError(
+                "fallback_pdf_parser must differ from default_pdf_parser; a fallback to the "
+                "same parser reproduces the same failure"
+            )
+        return self
+
+
+class QualityGateSettings(ContractModel):
+    """Thresholds and switches of the Quality Gate (versioned policy)."""
+
+    policy_version: Annotated[str, Field(pattern=r"^\d+\.\d+$")] = "1.0"
+    fail_on_page_count_mismatch: bool = True
+    require_page_provenance: bool = True
+    warn_on_empty_pages: bool = True
+    warn_on_low_text_density: bool = True
+    detect_garbled_text: bool = True
+    verify_character_ranges: bool = True
+    verify_table_structure: bool = True
+    minimum_meaningful_text_chars: Annotated[int, Field(ge=1, le=10_000)] = 50
+    low_text_chars_per_page: Annotated[int, Field(ge=1, le=10_000)] = 120
+    max_replacement_char_ratio: Annotated[float, Field(ge=0.0, le=1.0)] = 0.02
+    max_control_char_ratio: Annotated[float, Field(ge=0.0, le=1.0)] = 0.01
+    image_dominant_area_ratio: Annotated[float, Field(ge=0.0, le=1.0)] = 0.85
+    max_parser_warnings: Annotated[int, Field(ge=0, le=1000)] = 20
+
+    def to_policy(self) -> object:
+        """Build the domain :class:`QualityPolicy` from these settings."""
+        from research_platform.domain.documents.quality import QualityPolicy
+
+        return QualityPolicy(
+            policy_version=self.policy_version,
+            minimum_meaningful_text_chars=self.minimum_meaningful_text_chars,
+            low_text_chars_per_page=self.low_text_chars_per_page,
+            max_replacement_char_ratio=self.max_replacement_char_ratio,
+            max_control_char_ratio=self.max_control_char_ratio,
+            image_dominant_area_ratio=self.image_dominant_area_ratio,
+            page_count_mismatch_is_critical=self.fail_on_page_count_mismatch,
+            require_page_provenance=self.require_page_provenance,
+            verify_character_ranges=self.verify_character_ranges,
+            verify_table_structure=self.verify_table_structure,
+            warn_on_empty_pages=self.warn_on_empty_pages,
+            detect_garbled_text=self.detect_garbled_text,
+            max_parser_warnings=self.max_parser_warnings,
+        )
+
+
+class OcrSettings(ContractModel):
+    """OCR policy; no engine is selected in this iteration (OI-008)."""
+
+    enabled: bool = False
+    engine_id: ShortStr | None = None
+    supported_languages: Annotated[list[ShortStr], Field(min_length=1, max_length=8)] = Field(
+        default_factory=lambda: ["ru", "en"]
+    )
+
+    @model_validator(mode="after")
+    def _enabled_requires_an_engine(self) -> OcrSettings:
+        if self.enabled and not self.engine_id:
+            raise ValueError(
+                "ocr.enabled=true requires ocr.engine_id; the engine is chosen by the owner "
+                "(OI-008) and is not selected by the platform"
+            )
+        return self
+
+
 class PlatformSettings(ContractModel):
     """Root configuration object."""
 
@@ -338,6 +486,10 @@ class PlatformSettings(ContractModel):
     workflow: WorkflowSettings = Field(default_factory=WorkflowSettings)
     privacy: PrivacySettings = Field(default_factory=PrivacySettings)
     observability: ObservabilitySettings = Field(default_factory=ObservabilitySettings)
+    document_ingestion: DocumentIngestionSettings = Field(default_factory=DocumentIngestionSettings)
+    document_parsing: DocumentParsingSettings = Field(default_factory=DocumentParsingSettings)
+    quality_gate: QualityGateSettings = Field(default_factory=QualityGateSettings)
+    ocr: OcrSettings = Field(default_factory=OcrSettings)
 
 
 def _read_yaml(path: Path) -> dict[str, Any]:

@@ -43,10 +43,13 @@ from research_platform.agents.agent_1a.contracts.package_v21 import (
     Agent1AExtractionPackageV21,
 )
 from research_platform.agents.agent_1a.graph import SmokeRunRequest
-from research_platform.app import ApplicationBootstrap
+from research_platform.app import ApplicationBootstrap, ApplicationContext
 from research_platform.application.services.configuration_service import ConfigurationService
+from research_platform.application.services.document_errors import DocumentPipelineError
 from research_platform.application.services.health_check import CheckStatus
+from research_platform.composition.document_pipeline import document_dependencies
 from research_platform.config import SettingsError
+from research_platform.domain.documents.quality import QualityStatus
 from research_platform.platform.observability.logging import (
     CONFIG_VALIDATION_FAILED,
     StructuredLogger,
@@ -199,6 +202,51 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_project_root(platform_check, default=argparse.SUPPRESS)
     _add_json_flag(platform_check)
+
+    # document processing
+    document = subparsers.add_parser(
+        "document",
+        help="document ingestion, parsing and quality gate",
+        description=(
+            "Document pipeline: ingest a PDF or TXT, parse it, run the deterministic "
+            "Quality Gate and store every artefact. No LLM is involved."
+        ),
+    )
+    document_sub = document.add_subparsers(dest="document_command", metavar="<subcommand>")
+    document_process = document_sub.add_parser(
+        "process",
+        help="process one document end to end",
+        description=(
+            "Ingest, parse and quality-check one document. Prints identifiers, parser "
+            "provenance, page count and the Quality Gate verdict; the full report is "
+            "available through 'document report --run-id'."
+        ),
+    )
+    document_process.add_argument(
+        "--input", required=True, metavar="PATH", help="path to the PDF or TXT to process"
+    )
+    document_process.add_argument(
+        "--dry-run",
+        action="store_true",
+        dest="dry_run",
+        help="validate the input and exit without parsing",
+    )
+    _add_project_root(document_process, default=argparse.SUPPRESS)
+    _add_json_flag(document_process)
+
+    document_report = document_sub.add_parser(
+        "report",
+        help="print the stored Quality Report of a run",
+        description=(
+            "Read the Quality Report artefact stored for a run. The run repository is "
+            "in-memory, so the report is loaded from the artefact store, not from the run."
+        ),
+    )
+    document_report.add_argument(
+        "--run-id", required=True, metavar="RUN_ID", help="run id whose report is printed"
+    )
+    _add_project_root(document_report, default=argparse.SUPPRESS)
+    _add_json_flag(document_report)
 
     # agent1a workflow-smoke
     agent1a = subparsers.add_parser(
@@ -520,6 +568,169 @@ def run_workflow_smoke(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+# ------------------------------------------------------------------- documents
+
+
+def _document_context(project_root: Path) -> ApplicationContext:
+    return ApplicationBootstrap(project_root=project_root).build()
+
+
+def run_document_process(args: argparse.Namespace) -> int:
+    """Process one document end to end."""
+    project_root = _project_root(args)
+    try:
+        context = _document_context(project_root)
+    except SettingsError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_CONFIG_ERROR
+    except ValidationError as exc:
+        print("error: invalid configuration", file=sys.stderr)
+        for error in exc.errors():
+            print(f"  {_format_location(tuple(error['loc']))}: {error['msg']}", file=sys.stderr)
+        return EXIT_CONFIG_ERROR
+
+    try:
+        dependencies = document_dependencies(
+            settings=context.settings,
+            pipeline=context.document_pipeline,
+            run_manager=context.run_manager,
+            artifacts=context.artifact_service,
+            logger=context.logger,
+        )
+        workflow = context.document_pipeline.workflow(dependencies)
+        result = workflow.run(input_path=args.input, dry_run=getattr(args, "dry_run", False))
+    except DocumentPipelineError as exc:
+        print(f"error: {exc.code}: {exc}", file=sys.stderr)
+        if exc.code in {"parser_unavailable"}:
+            return EXIT_INFRASTRUCTURE_ERROR
+        return EXIT_CONTRACT_VIOLATION
+    except ModuleNotFoundError as exc:
+        print(f"error: parser unavailable: {exc}", file=sys.stderr)
+        return EXIT_INFRASTRUCTURE_ERROR
+    except Exception as exc:
+        print(f"error: {type(exc).__name__}: {exc}", file=sys.stderr)
+        return EXIT_CONTRACT_VIOLATION
+    finally:
+        context.close()
+
+    if getattr(args, "dry_run", False):
+        print(
+            f"dry-run: {args.input} is an acceptable {result.state.get('processing_status')} input"
+        )
+        print("dry-run: the input passed validation; nothing was parsed or stored")
+        return EXIT_OK
+
+    report = result.quality_report
+    if report is None:
+        print("error: the workflow produced no quality report", file=sys.stderr)
+        return EXIT_CONTRACT_VIOLATION
+    payload = {
+        "run_id": result.run_id,
+        "document_id": result.document_id,
+        "source_file_name": result.state.get("file_name"),
+        "source_type": result.state.get("source_type"),
+        "source_sha256": result.state.get("source_sha256"),
+        "source_size_bytes": result.state.get("source_size_bytes"),
+        "page_count": result.state.get("page_count"),
+        "language": result.state.get("language"),
+        "parser_name": result.state.get("parser_name"),
+        "parser_version": result.state.get("parser_version"),
+        "used_fallback": result.state.get("used_fallback", False),
+        "parsing_status": result.state.get("processing_status"),
+        "quality_status": report.overall_status.value,
+        "warnings_count": report.warnings_count,
+        "errors_count": report.errors_count,
+        "ocr_required_pages": report.ocr_required_pages,
+        "parsed_document_uri": result.state.get("parsed_document_uri"),
+        "quality_report_uri": result.state.get("quality_report_uri"),
+        "run_status": result.status.value,
+        "stop_reason": result.state.get("stop_reason"),
+    }
+    if getattr(args, "json_output", False):
+        print(json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False))
+    else:
+        print("document process")
+        print(f"  run_id:            {payload['run_id']}")
+        print(f"  document_id:       {payload['document_id']}")
+        print(f"  source:            {payload['source_file_name']} ({payload['source_type']})")
+        print(
+            f"  size:              {payload['source_size_bytes']} bytes"
+            f"  sha256:            {payload['source_sha256']}"
+        )
+        print(f"  pages:             {payload['page_count']} (null for TXT)")
+        print(f"  language:          {payload['language']}")
+        print(f"  parser:            {payload['parser_name']} {payload['parser_version']}")
+        print(f"  fallback:          {payload['used_fallback']}")
+        print(f"  quality:           {payload['quality_status']}")
+        print(f"  warnings / errors: {payload['warnings_count']} / {payload['errors_count']}")
+        print(f"  parsed document:   {payload['parsed_document_uri']}")
+        print(f"  quality report:    {payload['quality_report_uri']}")
+        print(f"  run status:        {payload['run_status']}")
+        if payload["ocr_required_pages"]:
+            print(f"  ocr required:      pages {payload['ocr_required_pages']}")
+        if payload["stop_reason"]:
+            print(f"  stop reason:       {payload['stop_reason']}")
+
+    status = report.overall_status
+    if status.is_ready:
+        return EXIT_OK
+    if status in {QualityStatus.REQUIRES_OCR, QualityStatus.NEEDS_HUMAN_REVIEW}:
+        return EXIT_CONTROLLED_STOP
+    return EXIT_CONTRACT_VIOLATION
+
+
+def run_document_report(args: argparse.Namespace) -> int:
+    """Print the stored Quality Report of a run."""
+    project_root = _project_root(args)
+    try:
+        context = _document_context(project_root)
+    except SettingsError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_CONFIG_ERROR
+    except ValidationError as exc:
+        print("error: invalid configuration", file=sys.stderr)
+        for error in exc.errors():
+            print(f"  {_format_location(tuple(error['loc']))}: {error['msg']}", file=sys.stderr)
+        return EXIT_CONFIG_ERROR
+    try:
+        metadata = [
+            item
+            for item in context.artifact_service.list_for_run(args.run_id)
+            if item.artifact_type.value == "quality_report"
+        ]
+        if not metadata:
+            print(
+                f"error: no quality report is stored for run {args.run_id!r}",
+                file=sys.stderr,
+            )
+            return EXIT_CONTRACT_VIOLATION
+        raw = context.artifact_service.read_by_id(metadata[0].artifact_id)
+    finally:
+        context.close()
+
+    report = json.loads(raw)
+    if getattr(args, "json_output", False):
+        print(json.dumps(report, indent=2, sort_keys=True, ensure_ascii=False))
+    else:
+        print(f"quality report for run {args.run_id}")
+        print(f"  document_id:   {report['document_id']}")
+        print(f"  status:        {report['overall_status']}")
+        print(f"  policy:        {report['quality_policy_version']}")
+        print(f"  pages:         {report['processed_pages']} / {report['page_count']}")
+        print(f"  warnings:      {report['warnings_count']}")
+        print(f"  errors:        {report['errors_count']}")
+        if report["ocr_required_pages"]:
+            print(f"  ocr pages:     {report['ocr_required_pages']}")
+        print(f"  summary:       {report['summary']}")
+        print("  checks:")
+        for check in report["checks"]:
+            print(
+                f"    - {check['check_id']}: {check['status']} "
+                f"[{check['severity']}] {check['message']}"
+            )
+    return EXIT_OK
+
+
 # ------------------------------------------------------------------------- main
 
 
@@ -562,6 +773,18 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             return EXIT_CONTRACT_VIOLATION
         return run_platform_check(args)
+
+    if args.command == "document":
+        if getattr(args, "document_command", None) == "process":
+            return run_document_process(args)
+        if getattr(args, "document_command", None) == "report":
+            return run_document_report(args)
+        print(
+            "error: 'document' requires a subcommand; run: research-platform document "
+            "process --input <path>",
+            file=sys.stderr,
+        )
+        return EXIT_CONTRACT_VIOLATION
 
     if args.command == "agent1a":
         if getattr(args, "agent1a_command", None) != "workflow-smoke":

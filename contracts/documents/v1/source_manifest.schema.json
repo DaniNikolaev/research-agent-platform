@@ -1,0 +1,137 @@
+{
+  "$defs": {
+    "DocumentLanguage": {
+      "description": "Detected source language.",
+      "enum": [
+        "ru",
+        "en",
+        "unknown"
+      ],
+      "title": "DocumentLanguage",
+      "type": "string"
+    },
+    "DocumentSourceType": {
+      "description": "Source format of an ingested document.",
+      "enum": [
+        "pdf",
+        "txt"
+      ],
+      "title": "DocumentSourceType",
+      "type": "string"
+    },
+    "SourceMediaType": {
+      "description": "Supported original source media types.",
+      "enum": [
+        "application/pdf",
+        "text/plain"
+      ],
+      "title": "SourceMediaType",
+      "type": "string"
+    }
+  },
+  "$id": "https://research-agent-platform.local/contracts/documents/v1/source_manifest.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Ingestion manifest of one received document version, contract 1.0: identity, original bytes, detected encoding, language and processing status.",
+  "properties": {
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "document_contract_version": {
+      "default": "1.0",
+      "pattern": "^\\d+\\.\\d+$",
+      "title": "Document Contract Version",
+      "type": "string"
+    },
+    "document_id": {
+      "pattern": "^[a-z0-9][a-z0-9_\\-]{2,63}$",
+      "title": "Document Id",
+      "type": "string"
+    },
+    "encoding_uncertain": {
+      "default": false,
+      "title": "Encoding Uncertain",
+      "type": "boolean"
+    },
+    "language": {
+      "$ref": "#/$defs/DocumentLanguage",
+      "default": "unknown"
+    },
+    "language_detection_method": {
+      "default": "not_detected",
+      "pattern": "^(not_detected|character_ratio|bom_and_ratio)$",
+      "title": "Language Detection Method",
+      "type": "string"
+    },
+    "original_encoding": {
+      "anyOf": [
+        {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Original Encoding"
+    },
+    "processing_status": {
+      "default": "ingested",
+      "pattern": "^(ingested|parsing|parsed|quality_checked|requires_ocr|needs_human_review|failed)$",
+      "title": "Processing Status",
+      "type": "string"
+    },
+    "run_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "source_artifact_uri": {
+      "maxLength": 512,
+      "pattern": "^artifact://documents/[a-z0-9][a-z0-9_\\-]{2,63}/runs/[A-Za-z0-9][A-Za-z0-9_\\-]{2,63}/[a-z][a-z0-9_]{2,63}/[a-z0-9][a-z0-9_\\-]{2,63}$",
+      "title": "Source Artifact Uri",
+      "type": "string"
+    },
+    "source_file_name": {
+      "maxLength": 8192,
+      "minLength": 1,
+      "title": "Source File Name",
+      "type": "string"
+    },
+    "source_media_type": {
+      "$ref": "#/$defs/SourceMediaType"
+    },
+    "source_sha256": {
+      "maxLength": 64,
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Source Sha256",
+      "type": "string"
+    },
+    "source_size_bytes": {
+      "exclusiveMinimum": 0,
+      "title": "Source Size Bytes",
+      "type": "integer"
+    },
+    "source_type": {
+      "$ref": "#/$defs/DocumentSourceType"
+    }
+  },
+  "required": [
+    "document_id",
+    "run_id",
+    "source_file_name",
+    "source_type",
+    "source_media_type",
+    "source_sha256",
+    "source_size_bytes",
+    "source_artifact_uri",
+    "created_at"
+  ],
+  "title": "SourceDocumentManifest",
+  "type": "object"
+}
