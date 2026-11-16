@@ -18,12 +18,15 @@ import re
 from collections.abc import Mapping
 from enum import StrEnum
 from pathlib import Path
-from typing import Annotated, Any, Final
+from typing import TYPE_CHECKING, Annotated, Any, Final
 
 import yaml
 from pydantic import Field, StringConstraints, model_validator
 
 from research_platform.domain.base import ContractModel, NonEmptyStr, ShortStr
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from research_platform.domain.documents.quality import QualityPolicy
 
 __all__ = [
     "ENVIRONMENT_OVERRIDES",
@@ -435,7 +438,7 @@ class QualityGateSettings(ContractModel):
     image_dominant_area_ratio: Annotated[float, Field(ge=0.0, le=1.0)] = 0.85
     max_parser_warnings: Annotated[int, Field(ge=0, le=1000)] = 20
 
-    def to_policy(self) -> object:
+    def to_policy(self) -> QualityPolicy:
         """Build the domain :class:`QualityPolicy` from these settings."""
         from research_platform.domain.documents.quality import QualityPolicy
 

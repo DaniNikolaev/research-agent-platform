@@ -29,6 +29,7 @@ from research_platform.application.ports.logging import LoggerPort
 from research_platform.config import QualityGateSettings
 from research_platform.domain.documents.elements import PageStatus
 from research_platform.domain.documents.parsed import ParsedDocument, ParsingStatus
+from research_platform.domain.documents.provenance import BBox
 from research_platform.domain.documents.quality import (
     CheckSeverity,
     CheckStatus,
@@ -797,15 +798,9 @@ def _control_char_ratio(text: str) -> float:
     return control / len(text)
 
 
-def _bbox_outside(bbox: object, document: ParsedDocument, page_number: int | None) -> bool:
+def _bbox_outside(bbox: BBox, document: ParsedDocument, page_number: int | None) -> bool:
     """Whether a box leaves its page bounds by more than a small tolerance."""
-    try:
-        x0 = float(bbox.x0)
-        y0 = float(bbox.y0)
-        x1 = float(bbox.x1)
-        y1 = float(bbox.y1)
-    except (TypeError, ValueError):  # pragma: no cover - defensive
-        return False
+    x0, y0, x1, y1 = bbox.x0, bbox.y0, bbox.x1, bbox.y1
     page = next(
         (
             item

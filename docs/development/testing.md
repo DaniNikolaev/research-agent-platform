@@ -115,3 +115,29 @@ uv run pytest -q --basetemp=D:\MultiAgentPipeline\.tooling\pytest-tmp
 - ACL, настройки Windows Security и антивирус для запуска тестов **не менялись**.
 - Тесты не проверяют качество парсинга, OCR, retrieval и реального провайдера — этих
   компонентов в Итерации 1 нет (см. `limitations.md`).
+
+## 7. Parsing-тесты (закрытие Итерации 2, 2026-11-16)
+
+Parsing-набор требует группы `parsing` и запускает настоящий Docling:
+
+```powershell
+uv run --group parsing pytest tests/parsing -q
+```
+
+| Файл | Что проверяет | Runtime |
+|---|---|---|
+| `test_pdf_docling_integration.py` | 12 тестов реального Docling 2.150.0 + golden-инварианты | ~46 s |
+| `test_quality_gate_scenarios.py` | 16 сценариев вердиктов Gate на сконструированных документах | < 1 s |
+| `test_document_workflow_integration.py` | 9 сценариев LangGraph workflow (включая сбой Store и повтор) | ~17 s |
+| `test_document_pipeline.py` | unit-тесты identity/decoder/ingestion/CLI | < 1 s |
+
+Фикстуры (`tests/parsing/pdf_fixtures.py`) генерируются из кода, бинарных PDF в репозитории
+нет. Golden-инварианты: страницы 1..N, уникальный монотонный `reading_order`, привязка к
+странице, `canonical_text[start:end] == element.text`, bbox в пределах своей страницы.
+
+Реальные прогоны Docling требуют установленных model assets; при их отсутствии тесты падают, а
+не пропускаются. Кириллическая фикстура строится через `insert_htmlbox` (встроенный Helvetica
+не кодирует кириллицу — иначе PDF содержал бы `?`).- **Scratch-каталоги сторонних библиотек.** При реальном прогоне Docling torch может создать в
+  корне проекта `torchinductor_<user>/` (когда `%TEMP%` недоступен на запись, как в песочнице
+  DSH). Каталог исключён в `.gitignore` и удаляется после прогона; к коду проекта он не
+  относится. Тестовые артефакты ingestion всегда создаются в `tmp_path`.

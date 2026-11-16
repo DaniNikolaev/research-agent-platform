@@ -189,7 +189,7 @@ class ParsedDocument(ContractModel):
             return self
         known_pages = {page.page_number for page in self.pages}
         for record in (*self.tables, *self.figures):
-            identifier = getattr(record, "table_id", None) or record.figure_id
+            identifier = record.table_id if isinstance(record, TableRecord) else record.figure_id
             if record.page_number is not None and record.page_number not in known_pages:
                 raise ValueError(
                     f"{identifier!r} references page {record.page_number}, which is not part "

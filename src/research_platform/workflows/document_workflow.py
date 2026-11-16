@@ -18,7 +18,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Final
+from typing import Any, Final, cast
 
 from langgraph.graph import END, START, StateGraph
 
@@ -26,7 +26,10 @@ from research_platform.application.ports.document_pipeline import DocumentInspec
 from research_platform.application.ports.logging import LoggerPort
 from research_platform.application.services.artifact_ids import run_artifact_id
 from research_platform.application.services.artifact_service import ArtifactService
-from research_platform.application.services.document_errors import DocumentPipelineError
+from research_platform.application.services.document_errors import (
+    DocumentIngestionError,
+    DocumentPipelineError,
+)
 from research_platform.application.services.document_ingestion import (
     DocumentIngestionService,
     IngestedSource,
@@ -78,6 +81,8 @@ class DocumentRuntimeCache:
     ingested: IngestedSource | None = None
     parsed: ParsedOutcome | None = None
     report: QualityReport | None = None
+    run_id: str = ""
+    """Set by the first node that creates the run, so a later failure can be recorded."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -181,7 +186,9 @@ class DocumentWorkflow:
         return QualityReport.model_validate_json(payload)
 
     def _fail(self, *, state: DocumentProcessingState, error: DocumentPipelineError) -> None:
-        run_id = state.get("run_id") or ""
+        # ``graph.invoke`` does not mutate the caller's dict, so a node that failed after
+        # creating the run is only known through the shared runtime cache.
+        run_id = self._deps.cache.run_id or state.get("run_id") or ""
         correlation_id = state.get("correlation_id") or "corr_unset"
         log = self._deps.logger.bind(run_id=run_id or None, correlation_id=correlation_id)
         if run_id:
@@ -231,6 +238,7 @@ def _initialize_run(state: DocumentProcessingState, deps: DocumentWorkflowDepend
             metadata={"purpose": "document_processing"},
         )
     )
+    deps.cache.run_id = record.run_id
     deps.logger.bind(run_id=record.run_id, correlation_id=record.correlation_id).event(
         "run_started", stage=_INGESTION.value, document_id=identity.document_id
     )
@@ -250,7 +258,7 @@ def _ingest_source(state: DocumentProcessingState, deps: DocumentWorkflowDepende
         correlation_id=state.get("correlation_id"),
     )
     if ingested.manifest.source_sha256 != state.get("source_sha256"):
-        raise DocumentPipelineError(
+        raise DocumentIngestionError(
             "source_changed_during_ingestion",
             "the file changed between identity resolution and ingestion",
         )
@@ -478,9 +486,10 @@ def build_document_workflow(
     def route(state: DocumentProcessingState) -> str:
         return "pdf" if state.get("source_type") == DocumentSourceType.PDF.value else "txt"
 
-    # LangGraph accepts a TypedDict state and callables; the builder chain is dynamically
-    # typed, so it is annotated as Any to keep the checker focused on our own models.
-    builder: Any = StateGraph(DocumentProcessingState)
+    # Narrow, documented exception: LangGraph's ``StateT`` bound does not accept a
+    # ``total=False`` TypedDict, although the runtime accepts exactly that. The cast is
+    # confined to this single construction site; every node keeps its own precise signature.
+    builder: Any = StateGraph(cast(Any, DocumentProcessingState))
     builder.add_node("validate_input", node(_validate_input))
     builder.add_node("initialize_run", node(_initialize_run))
     builder.add_node("ingest_source", node(_ingest_source))

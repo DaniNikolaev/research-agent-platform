@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
-from tests.fixtures.logging import silent_logger
 
 from research_platform.application.ports.document_pipeline import (
     DocumentInspection,
@@ -39,6 +38,7 @@ from research_platform.domain.documents.identity import (
 )
 from research_platform.domain.documents.parsed import ParserProvenance, ParsingStatus
 from research_platform.platform.document_parsing.txt.decoder import TxtDecoder
+from tests.fixtures.logging import silent_logger
 
 PDF_SHA = "a" * 64
 TXT_SHA = "b" * 64
@@ -139,13 +139,12 @@ class _Reader:
         return len(self.data), 0
 
 
-def _ingestion(reader, settings=None):
-    import tempfile
-
+def _ingestion(reader, settings=None, workdir=None):
     from research_platform.application.services.artifact_service import ArtifactService
     from research_platform.platform.artifact_store import LocalFileArtifactStore
 
-    store = LocalFileArtifactStore(root=Path(tempfile.mkdtemp(prefix="ing-")) / "artifacts")
+    base = Path(workdir) if workdir is not None else Path("ing-artifacts")
+    store = LocalFileArtifactStore(root=base / "artifacts")
     service = ArtifactService(store=store, logger=silent_logger())
     return (
         DocumentIngestionService(
@@ -159,23 +158,23 @@ def _ingestion(reader, settings=None):
     )
 
 
-def test_ingestion_rejects_an_unsupported_extension() -> None:
-    service, _ = _ingestion(_Reader(b"data", name="file.docx"))
+def test_ingestion_rejects_an_unsupported_extension(tmp_path: Path) -> None:
+    service, _ = _ingestion(_Reader(b"data", name="file.docx"), workdir=tmp_path)
     with pytest.raises(DocumentIngestionError) as excinfo:
         service.ingest(input_path="file.docx", run_id="run_1")
     assert excinfo.value.code == "unsupported_format"
 
 
-def test_ingestion_rejects_a_renamed_binary_file() -> None:
-    service, _ = _ingestion(_Reader(b"not a pdf", name="file.pdf"))
+def test_ingestion_rejects_a_renamed_binary_file(tmp_path: Path) -> None:
+    service, _ = _ingestion(_Reader(b"not a pdf", name="file.pdf"), workdir=tmp_path)
     with pytest.raises(DocumentIngestionError) as excinfo:
         service.ingest(input_path="file.pdf", run_id="run_1")
     assert excinfo.value.code == "invalid_file_signature"
 
 
-def test_ingestion_stores_the_original_and_a_manifest() -> None:
+def test_ingestion_stores_the_original_and_a_manifest(tmp_path: Path) -> None:
     payload = "заметка о конвейере\n\nвторой абзац текста".encode()
-    service, artifacts = _ingestion(_Reader(payload, name="note.txt"))
+    service, artifacts = _ingestion(_Reader(payload, name="note.txt"), workdir=tmp_path)
     ingested = service.ingest(input_path="note.txt", run_id="run_1")
     assert ingested.manifest.source_sha256
     assert ingested.manifest.original_encoding == "utf-8"

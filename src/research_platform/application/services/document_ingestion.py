@@ -331,12 +331,8 @@ class DocumentIngestionService:
 
     def _verify_source(self, input_path: str, expected_sha256: str) -> bool:
         try:
-            current = self._reader.fingerprint(input_path)
+            self._reader.fingerprint(input_path)
             reread = self._reader.read(input_path, max_size_bytes=self._max_size_hint())
-        except DocumentIngestionError:
-            return False
-        except OSError:
-            return False
-        if not current:
+        except (DocumentIngestionError, OSError):
             return False
         return hashlib.sha256(reread.data).hexdigest() == expected_sha256

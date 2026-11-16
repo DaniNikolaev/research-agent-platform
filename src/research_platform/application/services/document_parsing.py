@@ -49,6 +49,7 @@ from research_platform.domain.documents.elements import (
     ElementType,
     PageRecord,
     PageStatus,
+    ParsedSection,
     ProvenanceSource,
 )
 from research_platform.domain.documents.identity import DocumentSourceType
@@ -329,7 +330,9 @@ class DocumentParsingService:
         )
         return payload, list(extracted.warnings)
 
-    def _canonicalize(self, payload: ParsedPayload) -> tuple[list[DocumentElement], list, str]:
+    def _canonicalize(
+        self, payload: ParsedPayload
+    ) -> tuple[list[DocumentElement], tuple[ParsedSection, ...], str]:
         """Build canonical text and derive exact character ranges for every element."""
         parts: list[str] = []
         cursor = 0

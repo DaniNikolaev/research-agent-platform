@@ -105,25 +105,25 @@ class PyMuPDFInspector:
             document.close()
 
 
-def _image_area_ratio(page: object) -> float | None:
+def _image_area_ratio(page: pymupdf.Page) -> float | None:
     """Approximate share of the page covered by raster images.
 
     Returns ``None`` when the page has no images, so "no images" is not confused with
     "images cover nothing".
     """
     try:
-        images = page.get_images(full=True)  # type: ignore[attr-defined]
+        images = page.get_images(full=True)
     except Exception:
         return None
     if not images:
         return None
-    page_area = float(page.rect.width) * float(page.rect.height)  # type: ignore[attr-defined]
+    page_area = float(page.rect.width) * float(page.rect.height)
     if page_area <= 0:
         return None
     covered = 0.0
     for info in images:
         try:
-            for rect in page.get_image_rects(info[0]):  # type: ignore[attr-defined]
+            for rect in page.get_image_rects(info[0]):
                 covered += float(rect.width) * float(rect.height)
         except Exception:
             continue

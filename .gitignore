@@ -40,6 +40,9 @@ tests/fixtures/artifacts/
 *.docx
 *.zip
 
+# --- Test / library scratch (must never be committed) ---------------
+torchinductor_*/
+ing-*/
 # --- Editor / OS --------------------------------------------------------
 .idea/
 .vscode/

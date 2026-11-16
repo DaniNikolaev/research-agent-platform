@@ -306,3 +306,15 @@ CLI → код 4 (управляемая остановка), запуск пе�
 * [`document_parsing.md`](document_parsing.md) — откуда берутся страницы, текст и таблицы;
 * [`document_parser_configuration.md`](document_parser_configuration.md) — секция `quality_gate`;
 * [`../development/limitations.md`](limitations.md) — общий список ограничений.
+
+## Покрытие сценариев (техническое закрытие, 2026-11-16)
+
+`tests/parsing/test_quality_gate_scenarios.py` — 16 сценариев: `passed`, `passed_with_warnings`
+(пустая страница), `requires_ocr` (скан, в том числе через реальный Docling), повреждённый
+текстовый слой (`needs_human_review`), несоответствие числа страниц (`failed`), отсутствие
+страницы у элемента (warning), bbox вне страницы (warning), char-диапазоны вне текста и не
+воспроизводящие текст (`failed`), пустая таблица (`failed`), частичная таблица (warning),
+fallback (`needs_human_review`), текст без текста (`failed`), запись порогов политики в отчёт и
+сохранение артефактов при контролируемой остановке.
+
+Политика и пороги не изменялись.
