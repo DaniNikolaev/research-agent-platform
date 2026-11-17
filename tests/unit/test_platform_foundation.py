@@ -93,7 +93,11 @@ def test_bootstrap_resolves_relative_paths_under_the_project(tmp_path: Path) -> 
 def test_settings_defaults_are_valid(tmp_path: Path) -> None:
     settings = load_settings()
     assert settings.app.environment.value == "local"
-    assert settings.runtime.checkpointer is CheckpointerKind.IN_MEMORY
+    # Iteration 3: the local runtime checkpoints to SQLite so a run survives a restart.
+    assert settings.runtime.checkpointer is CheckpointerKind.SQLITE
+    assert settings.runtime.checkpoint_database == "data/checkpoints/agent1a.sqlite3"
+    assert settings.agent_1a.workflow_version == "1.0"
+    assert settings.agent_1a.retrieval_mode == "full_context"
     assert settings.paths.data_root == "data"
     assert settings.models.profiles == {}
 

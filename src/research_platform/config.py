@@ -30,6 +30,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 __all__ = [
     "ENVIRONMENT_OVERRIDES",
+    "Agent1ASettings",
     "AppSettings",
     "CheckpointerKind",
     "DoclingSettings",
@@ -90,8 +91,11 @@ class LogFormat(StrEnum):
 class CheckpointerKind(StrEnum):
     """Which LangGraph checkpointer the runtime uses."""
 
+    SQLITE = "sqlite"
+    """Durable local checkpointing (default for the local runtime)."""
+
     IN_MEMORY = "in_memory"
-    """Test/local only: state disappears with the process."""
+    """Test-only: state disappears with the process."""
 
     NONE = "none"
     """No checkpointing (stateless execution)."""
@@ -156,13 +160,20 @@ class PathsSettings(ContractModel):
 class RuntimeSettings(ContractModel):
     """LangGraph runtime knobs owned by the platform (not by an agent)."""
 
-    checkpointer: CheckpointerKind = CheckpointerKind.IN_MEMORY
+    checkpointer: CheckpointerKind = CheckpointerKind.SQLITE
+    checkpoint_database: RelativePath = "data/checkpoints/agent1a.sqlite3"
+    """Relative path of the SQLite checkpoint database (outside version control)."""
+
+    checkpoint_timeout_seconds: Annotated[float, Field(gt=0.0, le=600.0)] = 30.0
     max_graph_steps: Annotated[int, Field(ge=1, le=1_000)] = 50
     """Upper bound on graph super-steps; protects against an accidental loop."""
 
     @model_validator(mode="after")
-    def _in_memory_is_not_durable(self) -> RuntimeSettings:
-        # Kept as a validation hook: the only supported values today are explicit.
+    def _sqlite_needs_a_database_path(self) -> RuntimeSettings:
+        if self.checkpointer is CheckpointerKind.SQLITE:
+            _reject_unsafe_relative_path(self.checkpoint_database)
+            if not self.checkpoint_database.endswith(".sqlite3"):
+                raise ValueError("runtime.checkpoint_database must point to a .sqlite3 file")
         return self
 
 
@@ -478,6 +489,55 @@ class OcrSettings(ContractModel):
         return self
 
 
+class Agent1ASettings(ContractModel):
+    """Agent 1A extraction workflow settings (iteration 3)."""
+
+    workflow_version: Annotated[str, Field(pattern=r"^\d+\.\d+$")] = "1.0"
+    graph_state_version: Annotated[str, Field(pattern=r"^\d+\.\d+$")] = "1.0"
+    prompt_set_version: Annotated[str, Field(pattern=r"^\d+\.\d+$")] = "1.0"
+    model_profile: ShortStr = "fake-primary"
+    retrieval_mode: Annotated[str, Field(pattern=r"^full_context$")] = "full_context"
+    max_repair_attempts: Annotated[int, Field(ge=0, le=5)] = 2
+    """Targeted schema-repair attempts after the first invalid structured answer."""
+    max_transient_attempts: Annotated[int, Field(ge=1, le=10)] = 3
+    transient_backoff_seconds: Annotated[float, Field(ge=0.0, le=60.0)] = 0.0
+    context_output_reserve_tokens: Annotated[int, Field(ge=0, le=200_000)] = 2048
+    context_safety_reserve_tokens: Annotated[int, Field(ge=0, le=200_000)] = 512
+    interrupt_after: Annotated[list[ShortStr], Field(max_length=4)] = Field(default_factory=list)
+    """Technical breakpoints (node names) used to verify checkpoint/resume; empty in production."""
+
+    fake_scenario: Annotated[
+        str,
+        StringConstraints(
+            pattern=r"^(success|empty_result|invalid_schema_once|invalid_schema_always|"
+            r"transient_error_once|transient_error_always|permanent_error|"
+            r"interruption_scenario)$"
+        ),
+    ] = "success"
+
+    @model_validator(mode="after")
+    def _breakpoints_are_known_nodes(self) -> Agent1ASettings:
+        from research_platform.workflows.agent1a_extraction_workflow import (
+            INTERRUPTABLE_NODES,
+        )
+
+        unknown = sorted(set(self.interrupt_after) - set(INTERRUPTABLE_NODES))
+        if unknown:
+            raise ValueError(
+                f"agent_1a.interrupt_after contains unknown nodes: {unknown}; "
+                f"allowed: {list(INTERRUPTABLE_NODES)}"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _reserves_fit_the_profile_window(self) -> Agent1ASettings:
+        if self.context_output_reserve_tokens <= 0:
+            raise ValueError(
+                "agent_1a.context_output_reserve_tokens must leave room for the structured answer"
+            )
+        return self
+
+
 class PlatformSettings(ContractModel):
     """Root configuration object."""
 
@@ -493,6 +553,24 @@ class PlatformSettings(ContractModel):
     document_parsing: DocumentParsingSettings = Field(default_factory=DocumentParsingSettings)
     quality_gate: QualityGateSettings = Field(default_factory=QualityGateSettings)
     ocr: OcrSettings = Field(default_factory=OcrSettings)
+    agent_1a: Agent1ASettings = Field(default_factory=Agent1ASettings)
+
+    @model_validator(mode="after")
+    def _agent_profile_exists(self) -> PlatformSettings:
+        # Only an explicitly configured profile is validated here: a configuration that never
+        # mentions agent_1a keeps working with its defaults, while a configuration that names a
+        # profile must actually define it.
+        explicitly_configured = "model_profile" in self.agent_1a.model_fields_set
+        if (
+            explicitly_configured
+            and self.models.profiles
+            and self.agent_1a.model_profile not in self.models.profiles
+        ):
+            raise ValueError(
+                f"agent_1a.model_profile {self.agent_1a.model_profile!r} is not defined in "
+                f"models.profiles: {sorted(self.models.profiles)}"
+            )
+        return self
 
 
 def _read_yaml(path: Path) -> dict[str, Any]:

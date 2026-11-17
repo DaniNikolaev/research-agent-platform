@@ -18,11 +18,16 @@ __all__ = [
     "APPLICATION_STARTED",
     "ARTIFACT_CREATED",
     "ARTIFACT_VALIDATION_FAILED",
+    "CHECKPOINT_SAVED",
     "CHECK_COMPLETED",
     "CONFIG_LOADED",
     "CONFIG_VALIDATION_FAILED",
     "EVENT_NAMES",
+    "EXTRACTION_PLANNED",
     "FAKE_MODEL_REQUEST_COMPLETED",
+    "GROUP_COMPLETED",
+    "GROUP_FAILED",
+    "GROUP_STARTED",
     "MODEL_REQUEST_COMPLETED",
     "MODEL_REQUEST_STARTED",
     "RETRY_STARTED",
@@ -58,6 +63,12 @@ RUN_COMPLETED: Final = "run_completed"
 RUN_FAILED: Final = "run_failed"
 RETRY_STARTED: Final = "retry_started"
 RUNTIME_ERROR: Final = "runtime_error"
+GROUP_STARTED: Final = "group_started"
+GROUP_COMPLETED: Final = "group_completed"
+GROUP_FAILED: Final = "group_failed"
+EXTRACTION_PLANNED: Final = "extraction_planned"
+CHECKPOINT_SAVED: Final = "checkpoint_saved"
+WORKFLOW_RESUMED: Final = "workflow_resumed"
 
 EVENT_NAMES: Final[frozenset[str]] = frozenset(
     {
@@ -81,6 +92,12 @@ EVENT_NAMES: Final[frozenset[str]] = frozenset(
         RUN_FAILED,
         RETRY_STARTED,
         RUNTIME_ERROR,
+        GROUP_STARTED,
+        GROUP_COMPLETED,
+        GROUP_FAILED,
+        EXTRACTION_PLANNED,
+        CHECKPOINT_SAVED,
+        WORKFLOW_RESUMED,
     }
 )
 

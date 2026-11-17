@@ -31,7 +31,7 @@ import json
 import sys
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Final
+from typing import Any, Final
 
 from pydantic import BaseModel, ValidationError
 
@@ -46,10 +46,15 @@ from research_platform.agents.agent_1a.graph import SmokeRunRequest
 from research_platform.app import ApplicationBootstrap, ApplicationContext
 from research_platform.application.services.configuration_service import ConfigurationService
 from research_platform.application.services.document_errors import DocumentPipelineError
+from research_platform.application.services.extraction_errors import (
+    ErrorCategory,
+    ExtractionError,
+)
 from research_platform.application.services.health_check import CheckStatus
 from research_platform.composition.document_pipeline import document_dependencies
 from research_platform.config import SettingsError
 from research_platform.domain.documents.quality import QualityStatus
+from research_platform.domain.extraction.models import ExtractionRunManifest
 from research_platform.platform.observability.logging import (
     CONFIG_VALIDATION_FAILED,
     StructuredLogger,
@@ -280,6 +285,67 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="run the smoke workflow without the model gateway",
     )
+
+    extract = agent1a_sub.add_parser(
+        "extract",
+        help="run the Agent 1A extraction workflow for a finished document run",
+        description=(
+            "Run the four sequential extraction groups (G1 bibliographic, G2 research design, "
+            "G3 methods/data/variables, G4 findings/implications) over an already processed "
+            "document run. Uses the provider-neutral Model Gateway with the deterministic fake "
+            "adapter: results are technical simulation, not scientific extraction."
+        ),
+    )
+    extract.add_argument(
+        "--document-run-id",
+        required=True,
+        metavar="RUN_ID",
+        help="run id of a finished 'document process' run",
+    )
+    extract.add_argument(
+        "--correlation-id",
+        metavar="ID",
+        default=None,
+        help="correlation id recorded on the run (default: derived)",
+    )
+    _add_project_root(extract, default=argparse.SUPPRESS)
+    _add_json_flag(extract)
+
+    report = agent1a_sub.add_parser(
+        "report",
+        help="print the stored extraction manifest of a run",
+        description=(
+            "Read the extraction manifest artefact and the checkpointed state of one run. "
+            "The in-memory run repository does not survive the process, so the report is "
+            "loaded from published artefacts."
+        ),
+    )
+    report.add_argument(
+        "--run-id", required=True, metavar="RUN_ID", help="Agent 1A run id to report on"
+    )
+    _add_project_root(report, default=argparse.SUPPRESS)
+    _add_json_flag(report)
+
+    resume = agent1a_sub.add_parser(
+        "resume",
+        help="technically resume a checkpointed run",
+        description=(
+            "Continue a run from its SQLite checkpoint. Refuses runs that stopped for "
+            "requires_ocr or needs_human_review: a technical resume never confirms a human "
+            "review that did not happen."
+        ),
+    )
+    resume.add_argument(
+        "--run-id", required=True, metavar="RUN_ID", help="Agent 1A run id to resume"
+    )
+    resume.add_argument(
+        "--correlation-id",
+        metavar="ID",
+        default=None,
+        help="correlation id recorded on the run",
+    )
+    _add_project_root(resume, default=argparse.SUPPRESS)
+    _add_json_flag(resume)
     return parser
 
 
@@ -734,6 +800,265 @@ def run_document_report(args: argparse.Namespace) -> int:
 # ------------------------------------------------------------------------- main
 
 
+# ------------------------------------------------------------------ extraction
+
+
+def _extraction_exit_code(exc: ExtractionError) -> int:
+    """Map one typed extraction failure to the documented CLI exit code."""
+    category = exc.category
+    if category is ErrorCategory.QUALITY:
+        return EXIT_CONTROLLED_STOP
+    if category is ErrorCategory.CONTEXT:
+        return EXIT_CONTROLLED_STOP
+    if category in {ErrorCategory.INPUT, ErrorCategory.ARTIFACT, ErrorCategory.INTEGRITY}:
+        return EXIT_INPUT_ERROR
+    if category is ErrorCategory.CONTRACT:
+        return EXIT_INPUT_ERROR
+    return EXIT_INFRASTRUCTURE_ERROR
+
+
+def _extraction_context(project_root: Path) -> ApplicationContext:
+    return ApplicationBootstrap(project_root=project_root).build()
+
+
+def _require_extraction_pipeline(context: ApplicationContext) -> Any | None:
+    if context.agent1a_extraction is None:
+        print(
+            "error: the extraction workflow is unavailable: no model profile is configured "
+            "(add models.profiles and agent_1a.model_profile)",
+            file=sys.stderr,
+        )
+        return None
+    return context.agent1a_extraction
+
+
+def _extraction_payload(outcome: Any, pipeline: Any) -> dict[str, Any]:
+    state = dict(outcome.state or {})
+    run = outcome.run
+    return {
+        "run_id": state.get("run_id") or (run.run_id if run else None),
+        "document_run_id": state.get("document_run_id"),
+        "document_id": state.get("document_id"),
+        "run_status": run.status.value if run else None,
+        "processing_status": state.get("processing_status"),
+        "quality_status": state.get("quality_status"),
+        "provider_id": pipeline.gateway.provider_id,
+        "model_id": pipeline.gateway.model_id,
+        "fake_scenario": pipeline.gateway.scenario.value,
+        "execution_mode": "simulation" if pipeline.gateway.is_fake else "real_model",
+        "retrieval_mode": state.get("retrieval_mode"),
+        "current_group": state.get("current_group"),
+        "group_statuses": state.get("group_statuses") or {},
+        "group_result_uris": state.get("group_result_uris") or {},
+        "completed_groups": state.get("completed_groups") or [],
+        "retry_counters": state.get("retry_counters") or {},
+        "extraction_plan_uri": state.get("extraction_plan_uri"),
+        "extraction_result_uri": state.get("extraction_result_uri"),
+        "run_manifest_uri": state.get("run_manifest_uri"),
+        "last_completed_node": state.get("last_completed_node"),
+        "interrupt_reason": state.get("interrupt_reason") or outcome.stop_reason,
+        "warnings": list(state.get("warnings") or []),
+        "simulation_notice": (
+            "SIMULATION: the fake structured adapter produced these candidates; they are not "
+            "scientific extraction results"
+        ),
+    }
+
+
+def _print_extraction_payload(payload: dict[str, Any], *, heading: str) -> None:
+    print(heading)
+    print(f"  run_id:            {payload['run_id']}")
+    print(f"  document_run_id:   {payload['document_run_id']}")
+    print(f"  document_id:       {payload['document_id']}")
+    print(f"  run status:        {payload['run_status']}")
+    print(f"  processing:        {payload['processing_status']}")
+    print(f"  quality:           {payload['quality_status']}")
+    print(f"  provider / model:  {payload['provider_id']} / {payload['model_id']}")
+    print(f"  execution mode:    {payload['execution_mode']} ({payload['fake_scenario']})")
+    print(f"  retrieval mode:    {payload['retrieval_mode']}")
+    for group, status in payload["group_statuses"].items():
+        uri = payload["group_result_uris"].get(group)
+        print(f"  {group:<30} {status:<10} {uri or ''}")
+    print(f"  plan artefact:     {payload['extraction_plan_uri']}")
+    print(f"  result artefact:   {payload['extraction_result_uri']}")
+    print(f"  manifest artefact: {payload['run_manifest_uri']}")
+    print(f"  last node:         {payload['last_completed_node']}")
+    if payload["interrupt_reason"]:
+        print(f"  stop reason:       {payload['interrupt_reason']}")
+    print()
+    print(payload["simulation_notice"])
+
+
+def run_agent1a_extract(args: argparse.Namespace) -> int:
+    """Run the extraction workflow for a finished document run."""
+    project_root = _project_root(args)
+    try:
+        context = _extraction_context(project_root)
+    except SettingsError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_CONFIG_ERROR
+    except ValidationError as exc:
+        print("error: invalid configuration", file=sys.stderr)
+        for error in exc.errors():
+            print(f"  {_format_location(tuple(error['loc']))}: {error['msg']}", file=sys.stderr)
+        return EXIT_CONFIG_ERROR
+
+    pipeline = _require_extraction_pipeline(context)
+    if pipeline is None:
+        context.close()
+        return EXIT_CONFIG_ERROR
+
+    correlation_id = args.correlation_id or f"corr_{args.document_run_id[-12:]}"
+    try:
+        outcome = pipeline.start(
+            document_run_id=args.document_run_id, correlation_id=correlation_id
+        )
+    except ExtractionError as exc:
+        print(f"error: {exc.code} ({exc.category.value}): {exc}", file=sys.stderr)
+        return _extraction_exit_code(exc)
+    except Exception as exc:
+        print(f"error: {type(exc).__name__}: {exc}", file=sys.stderr)
+        return EXIT_INFRASTRUCTURE_ERROR
+    finally:
+        context.close()
+
+    payload = _extraction_payload(outcome, pipeline)
+    if getattr(args, "json_output", False):
+        print(json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False))
+    else:
+        _print_extraction_payload(payload, heading="agent1a extract")
+
+    if payload["interrupt_reason"]:
+        return EXIT_CONTROLLED_STOP
+    return EXIT_OK
+
+
+def _read_extraction_manifest(
+    context: ApplicationContext, run_id: str
+) -> ExtractionRunManifest | None:
+    for metadata in context.artifact_service.list_for_run(run_id):
+        if metadata.artifact_id.startswith("art_extraction_manifest"):
+            payload = json.loads(context.artifact_service.read_by_id(metadata.artifact_id))
+            return ExtractionRunManifest.model_validate(payload)
+    return None
+
+
+def run_agent1a_report(args: argparse.Namespace) -> int:
+    """Print the stored extraction manifest (and checkpoint state) of a run."""
+    project_root = _project_root(args)
+    try:
+        context = _extraction_context(project_root)
+    except SettingsError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_CONFIG_ERROR
+
+    try:
+        manifest = _read_extraction_manifest(context, args.run_id)
+        pipeline = context.agent1a_extraction
+        state = pipeline.state_for_run(args.run_id) if pipeline is not None else None
+    except json.JSONDecodeError:
+        print(f"error: the manifest of run {args.run_id!r} is not valid JSON", file=sys.stderr)
+        return EXIT_INPUT_ERROR
+    except Exception as exc:
+        print(f"error: {type(exc).__name__}: {exc}", file=sys.stderr)
+        return EXIT_INPUT_ERROR
+    finally:
+        context.close()
+
+    if manifest is None and not state:
+        print(
+            f"error: no extraction manifest or checkpoint found for run {args.run_id!r}",
+            file=sys.stderr,
+        )
+        return EXIT_INPUT_ERROR
+
+    payload: dict[str, Any] = {
+        "run_id": args.run_id,
+        "manifest_found": manifest is not None,
+        "checkpoint_found": bool(state),
+        "manifest": manifest.model_dump(mode="json") if manifest else None,
+        "checkpoint": {
+            "processing_status": (state or {}).get("processing_status"),
+            "last_completed_node": (state or {}).get("last_completed_node"),
+            "group_statuses": (state or {}).get("group_statuses"),
+            "completed_groups": (state or {}).get("completed_groups"),
+            "interrupt_reason": (state or {}).get("interrupt_reason"),
+        }
+        if state
+        else None,
+    }
+    if getattr(args, "json_output", False):
+        print(json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False))
+        return EXIT_OK
+
+    print("agent1a report")
+    print(f"  run_id:          {args.run_id}")
+    if manifest is None:
+        print("  manifest:        MISSING (artefacts were not published)")
+    else:
+        print(f"  document run:    {manifest.document_run_id}")
+        print(f"  document:        {manifest.document_id}")
+        print(f"  quality:         {manifest.quality_status}")
+        print(f"  provider/model:  {manifest.provider_id} / {manifest.model_id}")
+        print(f"  execution mode:  {manifest.execution_mode.value}")
+        print(
+            f"  workflow:        {manifest.workflow_version} (state {manifest.graph_state_version})"
+        )
+        print(f"  prompt set:      {manifest.prompt_set_version}")
+        for group, status in manifest.group_statuses.items():
+            print(f"  {group:<30} {status}")
+        print(f"  retries:         {manifest.retry_counts or {}}")
+        print(f"  final status:    {manifest.final_status}")
+        print(f"  result artefact: {manifest.extraction_result_uri}")
+    if state:
+        print(f"  checkpoint node: {(state or {}).get('last_completed_node')}")
+    return EXIT_OK
+
+
+def run_agent1a_resume(args: argparse.Namespace) -> int:
+    """Technically resume a checkpointed run."""
+    project_root = _project_root(args)
+    try:
+        context = _extraction_context(project_root)
+    except SettingsError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_CONFIG_ERROR
+    except ValidationError:
+        print("error: invalid configuration", file=sys.stderr)
+        return EXIT_CONFIG_ERROR
+
+    pipeline = _require_extraction_pipeline(context)
+    if pipeline is None:
+        context.close()
+        return EXIT_CONFIG_ERROR
+
+    correlation_id = args.correlation_id or f"corr_resume_{args.run_id[-8:]}"
+    try:
+        outcome = pipeline.resume(run_id=args.run_id, correlation_id=correlation_id)
+    except ExtractionError as exc:
+        print(f"error: {exc.code} ({exc.category.value}): {exc}", file=sys.stderr)
+        return _extraction_exit_code(exc)
+    except Exception as exc:
+        print(f"error: {type(exc).__name__}: {exc}", file=sys.stderr)
+        return EXIT_INFRASTRUCTURE_ERROR
+    finally:
+        context.close()
+
+    payload = _extraction_payload(outcome, pipeline)
+    if getattr(args, "json_output", False):
+        print(json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False))
+    else:
+        _print_extraction_payload(payload, heading="agent1a resume")
+        if outcome.paused:
+            print()
+            print(
+                "manual review required: a technical resume never confirms a human review (OI-007)"
+            )
+    if outcome.paused:
+        return EXIT_CONTROLLED_STOP
+    return EXIT_OK
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """CLI entry point; returns a process exit code."""
     parser = build_parser()
@@ -787,14 +1112,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         return EXIT_CONTRACT_VIOLATION
 
     if args.command == "agent1a":
-        if getattr(args, "agent1a_command", None) != "workflow-smoke":
-            print(
-                "error: 'agent1a' requires a subcommand; "
-                "run: research-platform agent1a workflow-smoke",
-                file=sys.stderr,
-            )
-            return EXIT_CONTRACT_VIOLATION
-        return run_workflow_smoke(args)
+        command = getattr(args, "agent1a_command", None)
+        if command == "workflow-smoke":
+            return run_workflow_smoke(args)
+        if command == "extract":
+            return run_agent1a_extract(args)
+        if command == "report":
+            return run_agent1a_report(args)
+        if command == "resume":
+            return run_agent1a_resume(args)
+        print(
+            "error: 'agent1a' requires a subcommand; "
+            "run: research-platform agent1a workflow-smoke | extract | report | resume",
+            file=sys.stderr,
+        )
+        return EXIT_CONTRACT_VIOLATION
 
     parser.print_help()
     return EXIT_CONTRACT_VIOLATION

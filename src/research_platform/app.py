@@ -31,6 +31,10 @@ from research_platform.application.services.configuration_service import Configu
 from research_platform.application.services.health_check import HealthCheckService
 from research_platform.application.services.redaction import Redactor
 from research_platform.application.services.run_manager import RunManager
+from research_platform.composition.agent1a_extraction import (
+    Agent1AExtractionPipeline,
+    build_agent1a_pipeline,
+)
 from research_platform.composition.document_pipeline import (
     DocumentPipeline,
     build_document_pipeline,
@@ -45,6 +49,7 @@ from research_platform.config import (
 )
 from research_platform.platform.artifact_store import LocalFileArtifactStore
 from research_platform.platform.checkpointing import InMemoryCheckpointProvider
+from research_platform.platform.checkpointing.sqlite import SQLiteCheckpointProvider
 from research_platform.platform.models import FakeModelGateway, capabilities_from_profile
 from research_platform.platform.observability.logging import (
     APPLICATION_SHUTDOWN,
@@ -75,6 +80,7 @@ class ApplicationContext:
     model_gateway: ModelGatewayPort | None
     runtime_factory: RuntimeFactory
     document_pipeline: DocumentPipeline
+    agent1a_extraction: Agent1AExtractionPipeline | None
     health_check: HealthCheckService
     _closers: list[Callable[[], None]]
 
@@ -166,7 +172,12 @@ class ApplicationBootstrap:
         run_repository = InMemoryRunRepository()
 
         checkpoint_provider: CheckpointProviderPort | None = None
-        if settings.runtime.checkpointer is CheckpointerKind.IN_MEMORY:
+        if settings.runtime.checkpointer is CheckpointerKind.SQLITE:
+            checkpoint_provider = SQLiteCheckpointProvider(
+                database_path=(self._project_root / settings.runtime.checkpoint_database).resolve(),
+                timeout_seconds=settings.runtime.checkpoint_timeout_seconds,
+            )
+        elif settings.runtime.checkpointer is CheckpointerKind.IN_MEMORY:
             checkpoint_provider = InMemoryCheckpointProvider()
 
         model_gateway: ModelGatewayPort | None = None
@@ -203,6 +214,15 @@ class ApplicationBootstrap:
             run_manager=run_manager,
             logger=logger,
         )
+        agent1a_extraction: Agent1AExtractionPipeline | None | None = None
+        if settings.models.profiles:
+            agent1a_extraction = build_agent1a_pipeline(
+                settings=settings,
+                artifacts=artifact_service,
+                run_manager=run_manager,
+                logger=logger,
+                checkpoint_provider=checkpoint_provider,
+            )
 
         closers: list[Callable[[], None]] = [
             artifact_store.close,
@@ -231,6 +251,7 @@ class ApplicationBootstrap:
             model_gateway=model_gateway,
             runtime_factory=runtime_factory,
             document_pipeline=document_pipeline,
+            agent1a_extraction=agent1a_extraction,
             health_check=health_check,
             _closers=closers,
         )

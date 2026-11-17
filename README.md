@@ -332,3 +332,37 @@ uv run research-platform document report --run-id run_20261114_120000_a1b2c3
 [`docs/development/document_parser_configuration.md`](docs/development/document_parser_configuration.md),
 [`docs/development/ocr_engine_evaluation.md`](docs/development/ocr_engine_evaluation.md),
 [`docs/development/limitations.md`](docs/development/limitations.md).
+
+## Итерация 3 — Agent 1A Extraction Workflow
+
+Извлечение полей карточки по четырём последовательным группам поверх уже обработанного
+документа. Модельный backend — детерминированный **Fake Adapter** через provider-neutral
+Model Gateway: результаты помечены `execution_mode=simulation` и **не являются научными**.
+
+```powershell
+# 1. Обработать документ (Итерация 2)
+uv run --group parsing research-platform document process --input D:\papers\article.pdf --json
+
+# 2. Запустить извлечение для полученного document_run_id
+uv run --group parsing research-platform agent1a extract --document-run-id "<DOC_RUN>" --json
+
+# 3. Посмотреть отчёт (работает и в новом процессе — данные из артефактов и checkpoint)
+uv run --group parsing research-platform agent1a report --run-id "<RUN>" --json
+
+# 4. Технически продолжить прерванный запуск (не подтверждает needs_human_review)
+uv run --group parsing research-platform agent1a resume --run-id "<RUN>"
+```
+
+| Команда | Коды возврата |
+|---|---|
+| `agent1a extract` | 0 — `completed`; 1 — вход/целостность/контракт; 2 — конфигурация; 3 — инфраструктура; 4 — controlled stop (`requires_ocr`, `needs_human_review`, overflow) |
+| `agent1a report` | 0 — отчёт; 1 — нет manifest/checkpoint для `run_id` |
+| `agent1a resume` | 0 — продолжено/уже завершено; 4 — нужен ручной разбор; 1 — нет checkpoint |
+
+Checkpointing: SQLite (`runtime.checkpointer: sqlite`, файл `data/checkpoints/agent1a.sqlite3`,
+`thread_id = run_id`), состояние переживает перезапуск процесса; `InMemorySaver` остался только
+для изолированных тестов. RunRepository по-прежнему in-memory (OI-006), поэтому запись запуска
+после рестарта восстанавливается из checkpoint.
+
+Подробности: `docs/development/agent_1a_extraction.md`,
+`docs/iteration_reports/iteration_3_report.md`. Всего тестов: 723.

@@ -21,10 +21,28 @@ paths:
   log_dir: logs
 
 runtime:
-  # Test/local only: checkpoint state disappears with the process.
-  # Durable checkpointing is a later storage sub-stage (OI-006).
-  checkpointer: in_memory     # in_memory | none
+  # Iteration 3: the local runtime keeps LangGraph state in SQLite so a run survives a
+  # process restart. `in_memory` remains available for isolated tests only; `none` is
+  # stateless execution.
+  checkpointer: sqlite       # sqlite | in_memory | none
+  checkpoint_database: data/checkpoints/agent1a.sqlite3
+  checkpoint_timeout_seconds: 30.0
   max_graph_steps: 50
+
+agent_1a:
+  # Agent 1A extraction workflow (iteration 3). The deterministic fake adapter is the only
+  # model backend: results are simulation, not scientific extraction.
+  workflow_version: "1.0"
+  graph_state_version: "1.0"
+  prompt_set_version: "1.0"
+  model_profile: fake-extraction
+  retrieval_mode: full_context
+  max_repair_attempts: 2
+  max_transient_attempts: 3
+  transient_backoff_seconds: 0.0
+  context_output_reserve_tokens: 2048
+  context_safety_reserve_tokens: 512
+  fake_scenario: success
 
 storage:
   # Logical root of the Artifact Store. A URI scheme, not a Windows path:

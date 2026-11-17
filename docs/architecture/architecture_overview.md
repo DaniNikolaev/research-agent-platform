@@ -344,3 +344,20 @@ Quality Gate — меняется только адаптер в `platform/` и,
 [`../development/quality_gate.md`](../development/quality_gate.md),
 [`../development/document_parser_configuration.md`](../development/document_parser_configuration.md),
 [`../iteration_reports/iteration_2_report.md`](../iteration_reports/iteration_2_report.md).
+
+## Итерация 3: Agent 1A Extraction Workflow
+
+Добавлен отдельный LangGraph workflow извлечения (`workflows/agent1a_extraction_workflow.py`),
+который принимает `document_run_id` завершённого Document Workflow и переиспользует его
+артефакты (`ParsedDocument`, канонический текст, Quality Report, manifest). Граф выполняет
+четыре последовательные группы полей (G1–G4), вызывает structured generation через
+provider-neutral Model Gateway (временно — детерминированный Fake Adapter), валидирует
+результаты типизированными моделями, публикует результаты и run manifest в Artifact Store.
+
+Состояние LangGraph сохраняется в SQLite (`SQLiteCheckpointProvider`, `thread_id = run_id`);
+локальный runtime использует его по умолчанию, `in_memory` остаётся для изолированных тестов.
+RunRepository остаётся in-memory (OI-006).
+
+Слои сохранены: доменные модели извлечения не зависят от инфраструктуры, сервисы работают
+через порты (`TokenCounterPort`, `ModelGatewayPort`), SQLite и Fake Adapter живут в
+`platform/`. Подробности — `docs/development/agent_1a_extraction.md`.

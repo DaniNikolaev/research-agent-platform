@@ -38,6 +38,18 @@ models:
         producing scientific content. Used by `platform check` and
         `agent1a workflow-smoke`.
 
+    fake-extraction:
+      # Iteration 3: profile of the Agent 1A extraction workflow. Served by the deterministic
+      # fake gateway; the window is small on purpose so the context budget is exercised.
+      # This is NOT a real provider configuration.
+      provider: fake_provider
+      model_id: fake-structured-v1
+      purpose: extraction
+      is_fake: true
+      max_context_tokens: 16000
+      max_output_tokens: 2048
+      supports_structured_output: true
+      supports_json_schema: true
     extraction-primary:
       # Placeholder: the owner has not chosen the provider yet.
       provider: UNRESOLVED_CHOOSE_PROVIDER

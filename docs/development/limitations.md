@@ -266,3 +266,29 @@ Quality Gate. Итерация 2 добавила конвейер для циф
   `run_id` из словаря, который `graph.invoke` не мутирует); теперь `run_id` передаётся через
   runtime-кэш.
 - Количество тестов: 656 (было 619).
+## Итерация 3 — ограничения Agent 1A Extraction Workflow (2026-11-17)
+
+- **Fake Model Adapter не является LLM.** Все результаты извлечения помечены
+  `execution_mode=simulation`; они не являются научными результатами и не проверены по
+  первоисточнику. Реальная точность извлечения не измерялась (нет gold dataset).
+- **Только fake-провайдер.** Реальный LLM Provider, его лимиты и capability-тесты — открытые
+  вопросы OI-001…OI-004, решение владельца.
+- **RAG, embeddings, retrieval, reranking не реализованы.** Поддерживается только режим
+  `full_context`; документ, не влезающий в окно модели, останавливается с
+  `extraction_context_overflow` (без silent truncation), а не чанкуется.
+- **Evidence Resolver, EvidenceRecord и Coverage Trail отсутствуют.** Сохраняются только
+  `EvidenceCandidate`; ни один кандидат не помечен как подтверждённый. `empty` никогда не
+  превращается в `not_found`.
+- **Пакет Agent 1A → Agent 1B и `scientific_review_status` не формируются** — это зона
+  Agent 1B.
+- **Checkpointing:** SQLite хранит только состояние LangGraph (`thread_id = run_id`).
+  `InMemoryRunRepository` остаётся in-memory (OI-006): после перезапуска запуск доступен по
+  `run_id` через checkpoint и артефакты, но поиск/перечисление запусков недоступны; запись
+  запуска восстанавливается из checkpoint под тем же `run_id`.
+- **HITL-канал (OI-007) отсутствует.** `needs_human_review` останавливает workflow, а
+  технический `resume` намеренно отказывается подтверждать ревью.
+- **Точки прерывания** настраиваются через `agent_1a.interrupt_after` (в production пусто);
+  они нужны для проверки checkpoint/resume.
+- **Таблицы** остаются на уровне Итерации 2; их предупреждения переносятся в запуск.
+- `ty check` = 0; на границе LangGraph (`invoke`/`get_state` возвращают неuntped-словари)
+  используется один документированный `_as_state` с `cast`.

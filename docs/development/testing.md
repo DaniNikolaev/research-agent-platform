@@ -141,3 +141,25 @@ uv run --group parsing pytest tests/parsing -q
   корне проекта `torchinductor_<user>/` (когда `%TEMP%` недоступен на запись, как в песочнице
   DSH). Каталог исключён в `.gitignore` и удаляется после прогона; к коду проекта он не
   относится. Тестовые артефакты ingestion всегда создаются в `tmp_path`.
+## 8. Agent 1A extraction tests (iteration 3)
+
+```powershell
+uv run --group parsing pytest tests/agent1a -q                # 63 tests, ~55 s
+uv run --group parsing pytest tests/parsing/test_agent1a_e2e_parsing.py -q   # 4 tests, ~28 s (real Docling)
+```
+
+| File | Covers |
+|---|---|
+| `tests/agent1a/test_extraction_unit.py` | group definitions, 27 fields, state validation, payload schema, prompt versions, all eight fake scenarios |
+| `tests/agent1a/test_agent1a_workflow.py` | success path, four-group order, artifact publication, immutability, compact state, quality routing (passed/warnings/ocr/review/failed), retries, preservation of Quality Gate warnings |
+| `tests/agent1a/test_agent1a_sqlite_resume.py` | SQLite file and LangGraph tables on disk, restore in a new Application, resume without repeating groups, run independence, unusable path, **resume in a separate OS process** |
+| `tests/agent1a/test_agent1a_cli.py` | `agent1a extract/report/resume` exit codes and JSON payloads, unchanged document commands |
+| `tests/parsing/test_agent1a_e2e_parsing.py` | digital PDF → extraction; scanned PDF → `requires_ocr` with zero model calls; multi-page PDF; TXT |
+
+Fixtures (`tests/agent1a/conftest.py`): a temporary project with `config/application.yaml`
+(SQLite checkpointer, `agent_1a` section) and `config/models.yaml` (`fake-extraction` profile),
+plus `seed_document_run` which publishes the four document artefacts with a chosen Quality Gate
+verdict so every routing branch is testable without Docling.
+
+The fake adapter never touches the network: one test patches `socket.connect` to fail and still
+runs a successful extraction.
