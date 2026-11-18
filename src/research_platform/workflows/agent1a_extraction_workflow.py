@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import re
+import sqlite3
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -30,7 +31,10 @@ from research_platform.application.services.agent1a_extraction import (
 )
 from research_platform.application.services.artifact_service import ArtifactService
 from research_platform.application.services.extraction_errors import (
+    RUN_ERROR_CODES,
+    ErrorCategory,
     ExtractionArtifactError,
+    ExtractionCheckpointError,
     ExtractionError,
     ExtractionInputError,
     ExtractionIntegrityError,
@@ -650,7 +654,12 @@ def _aggregate_extraction_results(
 
 
 def _build_manifest(
-    deps: ExtractionDependencies, state: Agent1AExtractionState
+    deps: ExtractionDependencies,
+    state: Agent1AExtractionState,
+    *,
+    final_status: str | None = None,
+    errors: tuple[str, ...] = (),
+    interrupt_reason: str | None = None,
 ) -> ExtractionRunManifest:
     manifest = deps.cache.manifest
     quality = deps.cache.quality_report
@@ -658,6 +667,14 @@ def _build_manifest(
         raise ExtractionError("the document manifest or quality report is missing")
     now = _iso(deps)
     warnings = list(state.get("warnings") or [])
+    derived_status = (
+        "completed"
+        if all(
+            (state.get("group_statuses") or {}).get(group.value) == GroupStatus.COMPLETED.value
+            for group in groups_in_order()
+        )
+        else (state.get("processing_status") or "unknown")
+    )
     return ExtractionRunManifest(
         run_id=state["run_id"],
         document_run_id=state["document_run_id"],
@@ -681,35 +698,68 @@ def _build_manifest(
         quality_report_uri=str(state.get("quality_report_uri") or ""),
         extraction_plan_uri=state.get("extraction_plan_uri"),
         extraction_result_uri=state.get("extraction_result_uri"),
-        final_status=(
-            "completed"
-            if all(
-                (state.get("group_statuses") or {}).get(group.value) == GroupStatus.COMPLETED.value
-                for group in groups_in_order()
-            )
-            else (state.get("processing_status") or "unknown")
+        final_status=final_status or derived_status,
+        interrupt_reason=(
+            interrupt_reason if interrupt_reason is not None else state.get("interrupt_reason")
         ),
         retry_counts=dict(state.get("retry_counters") or {}),
         warnings=warnings[-30:],
-        errors=[],
+        errors=list(errors)[-20:],
         started_at=state.get("created_at") or now,
         completed_at=now,
         created_at=now,
     )
 
 
+def _publish_terminal_manifest(
+    deps: ExtractionDependencies,
+    state: Agent1AExtractionState,
+    *,
+    final_status: str,
+    errors: tuple[str, ...] = (),
+    interrupt_reason: str | None = None,
+) -> tuple[str | None, str | None]:
+    """Publish the canonical terminal manifest once.
+
+    Returns ``(uri, warning)``: the warning is set (and the URI is ``None``) when the Artifact
+    Store cannot publish it — the caller must not pretend it succeeded.
+    """
+    existing = state.get("run_manifest_uri")
+    if existing:
+        return existing, None
+    if deps.cache.manifest is None or deps.cache.quality_report is None:
+        # The document context never loaded (missing run, unreadable artefacts, integrity
+        # mismatch): there is nothing to describe, and the original error must stay intact.
+        return None, "run manifest was not published: the document context was not loaded"
+    try:
+        manifest = _build_manifest(
+            deps,
+            state,
+            final_status=final_status,
+            errors=errors,
+            interrupt_reason=interrupt_reason,
+        )
+        uri = _store_json(
+            deps,
+            prefix="art_extraction_manifest",
+            artifact_type=ArtifactType.RUN_LOG,
+            payload=manifest.model_dump(mode="json"),
+            document_id=state["document_id"],
+            run_id=state["run_id"],
+        )
+    except ExtractionStorageError as exc:
+        return None, f"run manifest was not published: {exc.message}"
+    except ExtractionError as exc:
+        return None, f"run manifest was not published: {exc.message}"
+    return uri, None
+
+
 def _persist_run_manifest(
     deps: ExtractionDependencies, state: Agent1AExtractionState
 ) -> dict[str, Any]:
-    manifest = _build_manifest(deps, state)
-    uri = _store_json(
-        deps,
-        prefix="art_extraction_manifest",
-        artifact_type=ArtifactType.RUN_LOG,
-        payload=manifest.model_dump(mode="json"),
-        document_id=state["document_id"],
-        run_id=state["run_id"],
-    )
+    uri, warning = _publish_terminal_manifest(deps, state, final_status="completed")
+    if uri is None:  # a successful run must not silently lose its manifest
+        raise ExtractionStorageError(warning or "run manifest was not published")
     return {
         "run_manifest_uri": uri,
         "processing_status": "manifest_persisted",
@@ -737,6 +787,9 @@ def _finalize_run(deps: ExtractionDependencies, state: Agent1AExtractionState) -
 
 def _controlled_stop(deps: ExtractionDependencies, state: Agent1AExtractionState) -> dict[str, Any]:
     reason = f"requires_ocr: {state.get('quality_status')}"
+    uri, manifest_warning = _publish_terminal_manifest(
+        deps, state, final_status="requires_ocr", interrupt_reason=reason
+    )
     _ensure_run(deps, state)
     deps.run_manager.request_human_review(state["run_id"], reason=reason)
     _log(deps, state).event(
@@ -744,11 +797,47 @@ def _controlled_stop(deps: ExtractionDependencies, state: Agent1AExtractionState
         level="WARNING",
         stage=RunStage.QUALITY_GATE.value,
         reason=reason,
+        stop_kind="requires_ocr",
     )
+    warnings = list(state.get("warnings") or [])
+    if manifest_warning:
+        warnings.append(manifest_warning)
     return {
         "processing_status": "requires_ocr",
         "interrupt_reason": reason,
+        "run_manifest_uri": uri,
+        "warnings": warnings,
         "last_completed_node": "controlled_stop",
+        "updated_at": _iso(deps),
+    }
+
+
+def _prepare_human_review_stop(
+    deps: ExtractionDependencies, state: Agent1AExtractionState
+) -> dict[str, Any]:
+    """Persist the stop reason and the manifest *before* the LangGraph interrupt."""
+    reason = "needs_human_review: the quality gate requires a human decision"
+    uri, manifest_warning = _publish_terminal_manifest(
+        deps, state, final_status="needs_human_review", interrupt_reason=reason
+    )
+    _ensure_run(deps, state)
+    deps.run_manager.request_human_review(state["run_id"], reason=reason)
+    _log(deps, state).event(
+        "run_waiting_for_human",
+        level="WARNING",
+        stage=RunStage.QUALITY_GATE.value,
+        reason=reason,
+        stop_kind="needs_human_review",
+    )
+    warnings = list(state.get("warnings") or [])
+    if manifest_warning:
+        warnings.append(manifest_warning)
+    return {
+        "processing_status": "needs_human_review",
+        "interrupt_reason": reason,
+        "run_manifest_uri": uri,
+        "warnings": warnings,
+        "last_completed_node": "prepare_human_review_stop",
         "updated_at": _iso(deps),
     }
 
@@ -756,45 +845,52 @@ def _controlled_stop(deps: ExtractionDependencies, state: Agent1AExtractionState
 def _interrupt_for_review(
     deps: ExtractionDependencies, state: Agent1AExtractionState
 ) -> dict[str, Any]:
-    reason = "needs_human_review: the quality gate requires a human decision"
-    _ensure_run(deps, state)
-    deps.run_manager.request_human_review(state["run_id"], reason=reason)
-    _log(deps, state).event(
-        "run_waiting_for_human",
-        level="WARNING",
-        stage=RunStage.QUALITY_GATE.value,
-        reason=reason,
-    )
+    """Park the graph; the reason is already persisted by the previous node."""
+    reason = str(state.get("interrupt_reason") or "needs_human_review")
     interrupt({"run_id": state["run_id"], "reason": reason})
-    return {  # pragma: no cover - execution stops inside interrupt()
-        "interrupt_reason": reason,
-    }
+    return {}  # pragma: no cover - execution stops inside interrupt()
 
 
 def _fail_run(deps: ExtractionDependencies, state: Agent1AExtractionState) -> dict[str, Any]:
     reason = state.get("interrupt_reason") or "quality gate rejected the document"
     run_id = state.get("run_id") or ""
+    error_code = RUN_ERROR_CODES[ErrorCategory.QUALITY]
     if run_id:
         _ensure_run(deps, state)
         deps.run_manager.fail_run(
             run_id,
-            RunError(
-                code="extraction_failed",
-                message=reason[:500],
-                stage=RunStage.QUALITY_GATE,
-                retryable=False,
-                correlation_id=state.get("correlation_id") or "corr_unset",
+            RunError.model_validate(
+                {
+                    "code": error_code,
+                    "message": reason[:500],
+                    "stage": RunStage.QUALITY_GATE,
+                    "retryable": False,
+                    "correlation_id": state.get("correlation_id") or "corr_unset",
+                }
             ),
         )
+    uri, manifest_warning = _publish_terminal_manifest(
+        deps,
+        state,
+        final_status="failed",
+        errors=(f"quality:{error_code}: {reason}",),
+        interrupt_reason=reason,
+    )
     _log(deps, state).event(
         "run_failed",
         level="ERROR",
         stage=RunStage.QUALITY_GATE.value,
         reason=reason,
+        error_code=error_code,
     )
+    warnings = list(state.get("warnings") or [])
+    if manifest_warning:
+        warnings.append(manifest_warning)
     return {
         "processing_status": "failed",
         "interrupt_reason": reason,
+        "run_manifest_uri": uri,
+        "warnings": warnings,
         "last_completed_node": "fail_run",
         "updated_at": _iso(deps),
     }
@@ -820,7 +916,8 @@ def build_extraction_graph(
                     return fn(deps, state)
                 return fn(deps, state, group)
             except ExtractionError as exc:
-                _record_failure(deps, state, exc)
+                published = _record_failure(deps, state, exc)
+                exc.manifest_published = published is not None  # type: ignore[attr-defined]
                 raise
 
         return run
@@ -860,6 +957,7 @@ def build_extraction_graph(
     builder.add_node("persist_run_manifest", node(_persist_run_manifest))
     builder.add_node("finalize_run", node(_finalize_run))
     builder.add_node("controlled_stop", node(_controlled_stop))
+    builder.add_node("prepare_human_review_stop", node(_prepare_human_review_stop))
     builder.add_node("interrupt_for_review", node(_interrupt_for_review))
     builder.add_node("fail_run", node(_fail_run))
 
@@ -873,7 +971,7 @@ def build_extraction_graph(
         {
             "proceed": "prepare_full_context",
             "requires_ocr": "controlled_stop",
-            "needs_human_review": "interrupt_for_review",
+            "needs_human_review": "prepare_human_review_stop",
             "failed": "fail_run",
         },
     )
@@ -904,6 +1002,7 @@ def build_extraction_graph(
     builder.add_edge("persist_run_manifest", "finalize_run")
     for terminal in ("finalize_run", "controlled_stop", "fail_run"):
         builder.add_edge(terminal, END)
+    builder.add_edge("prepare_human_review_stop", "interrupt_for_review")
     builder.add_edge("interrupt_for_review", END)
 
     compiled = builder.compile(
@@ -926,21 +1025,51 @@ def _interrupt_reason(interrupts: object) -> str | None:
 
 
 def _record_failure(
-    deps: ExtractionDependencies, state: Agent1AExtractionState, exc: ExtractionError
-) -> None:
+    deps: ExtractionDependencies,
+    state: Agent1AExtractionState,
+    exc: ExtractionError,
+) -> str | None:
+    """Register one terminal failure exactly once and publish its manifest.
+
+    ``fail_run`` both appends the ``RunError`` and transitions the run, so calling
+    ``record_error`` here as well would duplicate the error.  The return value is the manifest
+    URI (``None`` when the Artifact Store is unavailable), which the caller exposes to the CLI.
+    """
     run_id = state.get("run_id") or ""
     if not run_id:
-        return
+        return None
+    error = exc.to_run_error(correlation_id=state.get("correlation_id"))
     try:
         _ensure_run(deps, state)
-        deps.run_manager.record_error(
-            run_id, exc.to_run_error(correlation_id=state.get("correlation_id"))
-        )
-        deps.run_manager.fail_run(
-            run_id, exc.to_run_error(correlation_id=state.get("correlation_id"))
-        )
+        run = _run_or_none(deps, run_id)
+        if run is None or run.status is not RunStatus.FAILED:
+            deps.run_manager.fail_run(run_id, error)
     except Exception:
         pass
+    uri, manifest_warning = _publish_terminal_manifest(
+        deps,
+        state,
+        final_status="failed",
+        errors=(f"{exc.category.value}:{error.code}: {error.message}",),
+    )
+    exc.manifest_publication_note = manifest_warning  # type: ignore[attr-defined]
+    log = _log(deps, state)
+    log.event(
+        "run_failed",
+        level="ERROR",
+        stage=exc.stage.value,
+        error_category=exc.category.value,
+        error_code=error.code,
+        node=state.get("last_completed_node") or None,
+    )
+    if manifest_warning:
+        log.event(
+            "run_manifest_publish_failed",
+            level="ERROR",
+            stage=exc.stage.value,
+            reason=manifest_warning,
+        )
+    return uri
 
 
 # -------------------------------------------------------------------------- runner
@@ -986,7 +1115,7 @@ class Agent1AExtractionRunner:
     def resume(self, *, run_id: str, correlation_id: str = "corr_resume") -> ExtractionOutcome:
         """Continue a checkpointed run from its last completed node."""
         config = self._config_for(run_id)
-        snapshot = self._graph.get_state(config)
+        snapshot = self._checkpoint(lambda: self._graph.get_state(config))
         checkpoint_state = _as_state(getattr(snapshot, "values", None))
         if not checkpoint_state:
             raise ExtractionInputError(f"no checkpoint found for run {run_id!r}; nothing to resume")
@@ -1015,11 +1144,23 @@ class Agent1AExtractionRunner:
 
     def state_for_run(self, run_id: str) -> Agent1AExtractionState | None:
         """Read the checkpointed state of a run, if any."""
-        snapshot = self._graph.get_state(self._config_for(run_id))
+        snapshot = self._checkpoint(lambda: self._graph.get_state(self._config_for(run_id)))
         values = _as_state(getattr(snapshot, "values", None))
         return values or None
 
     # ------------------------------------------------------------------ internals
+
+    @staticmethod
+    def _checkpoint(operation: Callable[[], Any]) -> Any:
+        """Run a checkpoint-store operation, translating storage failures into CHECKPOINT.
+
+        Only ``OSError``/``sqlite3.Error`` (the adapter failure surface) are translated;
+        business errors raised by graph nodes keep their own category.
+        """
+        try:
+            return operation()
+        except (OSError, sqlite3.Error) as exc:
+            raise ExtractionCheckpointError(f"checkpoint store operation failed: {exc}") from exc
 
     def _config_for(self, run_id: str) -> dict[str, Any]:
         return {"configurable": {"thread_id": self._thread_id_for_run(run_id)}}
@@ -1035,7 +1176,7 @@ class Agent1AExtractionRunner:
 
         config = config or self._config_for((state or {}).get("run_id") or "")
         try:
-            final_state = self._graph.invoke(state, config=config)
+            final_state = self._checkpoint(lambda: self._graph.invoke(state, config=config))
         except GraphInterrupt:
             snapshot = self._graph.get_state(config)
             values = _as_state(getattr(snapshot, "values", None))

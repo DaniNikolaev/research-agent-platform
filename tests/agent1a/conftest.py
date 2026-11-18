@@ -93,7 +93,7 @@ class Project:
     root: Path
     checkpoint_database: Path
 
-    def config(self, **agent_1a: Any) -> None:
+    def config(self, *, observability: dict[str, Any] | None = None, **agent_1a: Any) -> None:
         """(Re)write the configuration with optional ``agent_1a`` overrides."""
         settings = {
             "workflow_version": "1.0",
@@ -114,6 +114,8 @@ class Project:
             "storage": {"artifact_root_uri": "artifact://local/artifacts"},
             "agent_1a": settings,
         }
+        if observability is not None:
+            application["observability"] = observability
         models = {
             "models": {
                 "default_profile": "fake-extraction",

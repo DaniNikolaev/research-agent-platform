@@ -176,6 +176,7 @@ class ApplicationBootstrap:
             checkpoint_provider = SQLiteCheckpointProvider(
                 database_path=(self._project_root / settings.runtime.checkpoint_database).resolve(),
                 timeout_seconds=settings.runtime.checkpoint_timeout_seconds,
+                logger=logger,
             )
         elif settings.runtime.checkpointer is CheckpointerKind.IN_MEMORY:
             checkpoint_provider = InMemoryCheckpointProvider()

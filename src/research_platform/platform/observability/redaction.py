@@ -9,9 +9,16 @@ from __future__ import annotations
 
 from research_platform.application.services.redaction import (
     REDACTED,
+    SAFE_NUMERIC_METRIC_KEYS,
     SECRET_KEY_MARKERS,
     RedactedStr,
     Redactor,
 )
 
-__all__ = ["REDACTED", "SECRET_KEY_MARKERS", "RedactedStr", "Redactor"]
+__all__ = [
+    "REDACTED",
+    "SAFE_NUMERIC_METRIC_KEYS",
+    "SECRET_KEY_MARKERS",
+    "RedactedStr",
+    "Redactor",
+]

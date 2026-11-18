@@ -35,6 +35,7 @@ __all__ = [
     "RUN_COMPLETED",
     "RUN_CREATED",
     "RUN_FAILED",
+    "RUN_MANIFEST_PUBLISH_FAILED",
     "RUN_STARTED",
     "RUN_WAITING_FOR_HUMAN",
     "STAGE_COMPLETED",
@@ -68,6 +69,7 @@ GROUP_COMPLETED: Final = "group_completed"
 GROUP_FAILED: Final = "group_failed"
 EXTRACTION_PLANNED: Final = "extraction_planned"
 CHECKPOINT_SAVED: Final = "checkpoint_saved"
+RUN_MANIFEST_PUBLISH_FAILED: Final = "run_manifest_publish_failed"
 WORKFLOW_RESUMED: Final = "workflow_resumed"
 
 EVENT_NAMES: Final[frozenset[str]] = frozenset(
@@ -97,6 +99,7 @@ EVENT_NAMES: Final[frozenset[str]] = frozenset(
         GROUP_FAILED,
         EXTRACTION_PLANNED,
         CHECKPOINT_SAVED,
+        RUN_MANIFEST_PUBLISH_FAILED,
         WORKFLOW_RESUMED,
     }
 )

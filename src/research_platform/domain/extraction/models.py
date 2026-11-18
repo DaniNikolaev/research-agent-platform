@@ -333,6 +333,7 @@ class ExtractionRunManifest(ContractModel):
     extraction_plan_uri: ShortStr | None = None
     extraction_result_uri: ShortStr | None = None
     final_status: ShortStr
+    interrupt_reason: ShortStr | None = None
     retry_counts: Annotated[dict[ShortStr, int], Field(default_factory=dict)] = Field(
         default_factory=dict
     )

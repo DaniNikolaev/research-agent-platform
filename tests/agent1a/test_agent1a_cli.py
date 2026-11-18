@@ -9,6 +9,7 @@ import pytest
 
 from research_platform.app import bootstrap_application
 from research_platform.cli import (
+    EXIT_CONTRACT_VIOLATION,
     EXIT_CONTROLLED_STOP,
     EXIT_INPUT_ERROR,
     EXIT_OK,
@@ -186,6 +187,133 @@ def test_resume_does_not_confirm_a_human_review(
     )
     assert resume_code == EXIT_CONTROLLED_STOP
     assert "manual review required" in capsys.readouterr().out.lower()
+
+
+def _document_scoped_manifest(root: Path, document_run_id: str, document_id: str | None = None):
+    """Read the Agent 1A manifest through the document scope (RunRepository is in-memory)."""
+    import json as _json
+
+    from research_platform.app import bootstrap_application
+    from research_platform.domain.extraction.models import ExtractionRunManifest
+
+    context = bootstrap_application(project_root=root)
+    try:
+        if document_id is None:
+            document_id = context.artifact_service.list_for_run(document_run_id)[0].document_id
+        manifests = [
+            item
+            for item in context.artifact_service.list_for_document(document_id)
+            if item.artifact_id.startswith("art_extraction_manifest")
+        ]
+        if not manifests:
+            return None
+        return ExtractionRunManifest.model_validate(
+            _json.loads(context.artifact_service.read_by_id(manifests[0].artifact_id))
+        )
+    finally:
+        context.close()
+
+
+def test_context_overflow_is_terminal_failure_with_exit_one(
+    project: Project, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Controlled *failure* (Run failed + RunError + manifest) is exit 1, not stop 4."""
+    text = "D8-CONTRACT-CHECK " + "a" * 20_000
+    context = bootstrap_application(project_root=project.root)
+    try:
+        document_run_id = seed_document_run(context.artifact_service, canonical_text=text)
+    finally:
+        context.close()
+
+    code = main(
+        [
+            "agent1a",
+            "extract",
+            "--document-run-id",
+            document_run_id,
+            "--project-root",
+            str(project.root),
+        ]
+    )
+    captured = capsys.readouterr()
+    assert code == EXIT_CONTRACT_VIOLATION
+    assert code != EXIT_CONTROLLED_STOP
+    assert "extraction_context_overflow" in captured.err
+    assert "max_chars=8192" in captured.err
+
+    manifest = _document_scoped_manifest(project.root, document_run_id)
+    assert manifest is not None
+    assert manifest.final_status == "failed"
+    assert manifest.errors
+    assert "extraction_context_overflow" in manifest.errors[0]
+
+
+def test_quality_failed_is_terminal_failure_not_controlled_stop(
+    project: Project, capsys: pytest.CaptureFixture[str]
+) -> None:
+    context = bootstrap_application(project_root=project.root)
+    try:
+        document_run_id = seed_document_run(
+            context.artifact_service, quality_status=QualityStatus.FAILED
+        )
+    finally:
+        context.close()
+    code = main(
+        [
+            "agent1a",
+            "extract",
+            "--document-run-id",
+            document_run_id,
+            "--project-root",
+            str(project.root),
+        ]
+    )
+    capsys.readouterr()
+    assert code == EXIT_CONTRACT_VIOLATION
+    assert code != EXIT_CONTROLLED_STOP
+
+    manifest = _document_scoped_manifest(project.root, document_run_id)
+    assert manifest is not None
+    assert manifest.final_status == "failed"
+    assert manifest.errors
+    assert "quality_gate_failed" in manifest.errors[0]
+
+
+@pytest.mark.parametrize(
+    "status",
+    [QualityStatus.REQUIRES_OCR, QualityStatus.NEEDS_HUMAN_REVIEW],
+    ids=["requires_ocr", "needs_human_review"],
+)
+def test_controlled_stops_keep_exit_four(
+    project: Project, capsys: pytest.CaptureFixture[str], status: QualityStatus
+) -> None:
+    """A controlled stop waits for a human: exit 4, ``waiting_for_human``, no RunError."""
+    context = bootstrap_application(project_root=project.root)
+    try:
+        document_run_id = seed_document_run(context.artifact_service, quality_status=status)
+    finally:
+        context.close()
+    code = main(
+        [
+            "agent1a",
+            "extract",
+            "--document-run-id",
+            document_run_id,
+            "--project-root",
+            str(project.root),
+            "--json",
+        ]
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert code == EXIT_CONTROLLED_STOP
+    assert code != EXIT_CONTRACT_VIOLATION
+    assert payload["processing_status"] == status.value
+    assert payload["run_status"] == "waiting_for_human"
+
+    manifest = _document_scoped_manifest(project.root, document_run_id)
+    assert manifest is not None
+    assert manifest.final_status == status.value
+    assert manifest.errors == [], "a controlled stop must not carry a RunError"
 
 
 def test_document_commands_are_unchanged(

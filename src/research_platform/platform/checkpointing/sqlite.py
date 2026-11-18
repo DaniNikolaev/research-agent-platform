@@ -13,17 +13,27 @@ from pathlib import Path
 
 from langgraph.checkpoint.sqlite import SqliteSaver
 
+from research_platform.application.ports.logging import LoggerPort
+from research_platform.platform.checkpointing.observed import ObservedSqliteSaver
+
 __all__ = ["SQLiteCheckpointProvider"]
 
 
 class SQLiteCheckpointProvider:
     """Create SQLite-backed savers sharing one database file."""
 
-    def __init__(self, *, database_path: Path, timeout_seconds: float = 30.0) -> None:
+    def __init__(
+        self,
+        *,
+        database_path: Path,
+        timeout_seconds: float = 30.0,
+        logger: LoggerPort | None = None,
+    ) -> None:
         if timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be positive")
         self._database_path = Path(database_path)
         self._timeout_seconds = timeout_seconds
+        self._logger = logger
         self._connections: list[sqlite3.Connection] = []
 
     @property
@@ -37,14 +47,17 @@ class SQLiteCheckpointProvider:
         return "sqlite"
 
     def create_saver(self) -> SqliteSaver:
-        """Open (or create) the database and return a saver over a dedicated connection."""
+        """Open (or create) the database and return a saver over a dedicated connection.
+
+        The saver emits ``checkpoint_saved`` after the official adapter confirms a write.
+        """
         self._database_path.parent.mkdir(parents=True, exist_ok=True)
         connection = sqlite3.connect(
             self._database_path,
             timeout=self._timeout_seconds,
             check_same_thread=False,
         )
-        saver = SqliteSaver(connection)
+        saver = ObservedSqliteSaver(connection, logger=self._logger)
         self._connections.append(connection)
         return saver
 

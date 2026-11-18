@@ -16,6 +16,7 @@ from pydantic import StringConstraints
 
 __all__ = [
     "REDACTED",
+    "SAFE_NUMERIC_METRIC_KEYS",
     "SECRET_KEY_MARKERS",
     "RedactedStr",
     "Redactor",
@@ -37,6 +38,21 @@ SECRET_KEY_MARKERS: Final[tuple[str, ...]] = (
     "dsn",
     "private_key",
 )
+
+SAFE_NUMERIC_METRIC_KEYS: Final[frozenset[str]] = frozenset(
+    {
+        "context_tokens",
+        "max_context_tokens",
+        "input_budget_tokens",
+        "output_reserve_tokens",
+        "safety_reserve_tokens",
+        "retry_count",
+        "attempt",
+        "attempt_count",
+        "max_attempts",
+    }
+)
+"""Numeric execution metrics that are safe to log verbatim (never textual payloads)."""
 
 RedactedStr = Annotated[str, StringConstraints(max_length=4000)]
 
@@ -86,6 +102,14 @@ class Redactor:
 
     def redact_value(self, key: str, value: Any) -> Any:
         """Mask a value when its key declares secret content, else redact the text."""
+        if (
+            key in SAFE_NUMERIC_METRIC_KEYS
+            and isinstance(value, int | float)
+            and not isinstance(value, bool)
+        ):
+            # A counted metric is not a credential: a key such as ``context_tokens`` must not
+            # hide the number.  Only real numbers pass; the same key holding text stays redacted.
+            return value
         if self.is_secret_key(key):
             return REDACTED
         if isinstance(value, str):

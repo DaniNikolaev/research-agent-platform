@@ -7,6 +7,7 @@ document or group results.
 
 from __future__ import annotations
 
+import sqlite3
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -15,6 +16,9 @@ from research_platform.application.ports.checkpoint import CheckpointProviderPor
 from research_platform.application.ports.logging import LoggerPort
 from research_platform.application.services.agent1a_extraction import ExtractionService
 from research_platform.application.services.artifact_service import ArtifactService
+from research_platform.application.services.extraction_errors import (
+    ExtractionCheckpointError,
+)
 from research_platform.application.services.extraction_prompts import (
     PromptTemplate,
     load_prompt_set,
@@ -100,7 +104,10 @@ class Agent1AExtractionPipeline:
 
     def _runner(self) -> Agent1AExtractionRunner:
         deps = self._dependencies(ExtractionRuntimeCache())
-        saver = self.checkpoint_provider.create_saver() if self.checkpoint_provider else None
+        try:
+            saver = self.checkpoint_provider.create_saver() if self.checkpoint_provider else None
+        except (OSError, sqlite3.Error) as exc:
+            raise ExtractionCheckpointError(f"could not open the checkpoint store: {exc}") from exc
         graph = build_extraction_graph(
             deps,
             checkpointer=saver,

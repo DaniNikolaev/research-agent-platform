@@ -163,3 +163,43 @@ verdict so every routing branch is testable without Docling.
 
 The fake adapter never touches the network: one test patches `socket.connect` to fail and still
 runs a successful extraction.
+## 9. Тесты технического упрочнения (2026-11-18)
+
+```powershell
+uv run --group parsing pytest tests/agent1a/test_hardening.py -q   # 33 теста
+uv run --group parsing pytest tests/agent1a -q                     # 96 тестов
+```
+
+`test_hardening.py` закрывает D1–D7 и A1: диагностический Run Manifest для `requires_ocr`,
+`needs_human_review` и `failed` (включая частично завершённые группы), идемпотентность
+публикации, честное поведение при недоступном хранилище, персистентный `interrupt_reason`
+(включая новый `bootstrap_application`), маппинг всех 12 категорий ошибок в `RunError.code`,
+однократную регистрацию ошибки, типизированную ошибку Checkpointing с `__cause__` и exit 3,
+события `retry_started`/`group_failed`/`checkpoint_saved`, redaction `context_tokens` при
+сохранении редактирования секретов, реэкспорт шести event names и три сценария context
+budget (внутри лимита — полный текст без усечения по SHA-256 и длине; выше — controlled stop
+без вызовов gateway и с неизменным canonical-артефактом; граница ровно на бюджете).
+
+Итог полного прогона: 756 passed, 0 failed, 0 skipped.
+## 10. D8 и подтверждающие тесты D5/D6 (2026-11-18)
+
+```powershell
+uv run --group parsing pytest tests/agent1a/test_d8_and_evidence.py -q   # 7 тестов
+```
+
+`test_d8_and_evidence.py`:
+
+- `test_message_at_contract_limit_is_sent_untruncated` — 8192 символа проходят, 4 вызова
+  gateway, содержимое не изменено;
+- `test_message_above_contract_limit_is_refused_before_contract` — 8193 отклоняются до
+  контракта, 0 вызовов, `extraction_context_overflow`, canonical-артефакт цел;
+- `test_d8_regression_20000_characters_is_a_controlled_stop` — исходный сценарий D8: token
+  budget проходит, контрактный лимит отклоняет; один RunError, manifest `failed`;
+- `test_each_message_is_checked_separately` — лимит применяется к каждому сообщению, сумма
+  может превышать 8192 без ошибки;
+- `test_checkpoint_read_failure_is_typed_and_preserves_cause[oserror|sqlite3]` — реальный
+  `SqliteSaver.get_tuple` при resume падает → `ExtractionCheckpointError`, `__cause__` сохранён;
+- `test_checkpoint_saved_is_not_emitted_when_checkpoint_write_fails` — сбой базового `put`
+  не эмитирует событие; успешная запись эмитирует ровно одно.
+
+Итог: 768 passed в полном наборе (D8-классификация: терминальные ошибки контекста/качества — exit 1, controlled stop `requires_ocr`/`needs_human_review` — exit 4).

@@ -222,3 +222,49 @@ scanned PDF end to end. Total suite: 723 passed.
    artefacts), but not by search or listing.
 7. A technical resume cannot and must not approve a `needs_human_review` document (OI-007).
 8. Tables remain at the iteration 2 quality level; their warnings are carried into the run.
+
+## 15. Technical hardening (2026-11-18)
+
+Точечные исправления диагностики и наблюдаемости; архитектура графа и контракты не менялись.
+
+- **Терминальный Run Manifest.** Успешный прогон публикует манифест как раньше; `requires_ocr`,
+  `needs_human_review` и `failed` теперь тоже публикуют `ExtractionRunManifest` (тип `run_log`)
+  с `final_status`, `interrupt_reason`, `errors`, статусами и URI групп. Публикация
+  идемпотентна: повторный вход в терминальный узел возвращает существующий URI; при
+  недоступном Artifact Store манифест не создаётся, причина попадает в warnings/исключение, а
+  CLI печатает «the run manifest was not published …».
+- **`needs_human_review`.** Узел `prepare_human_review_stop` сохраняет причину, статус и
+  манифест **до** `interrupt()`; узел `interrupt_for_review` только паркует граф. После
+  холодного рестарта причина доступна через checkpoint, `agent1a report` её печатает.
+- **Коды ошибок.** `RUN_ERROR_CODES` — единственный маппинг `ErrorCategory → RunError.code`
+  (`input_error`, `artifact_error`, `integrity_error`, `quality_gate_failed`,
+  `extraction_context_overflow`, `structured_output_invalid`, `model_transient_error`,
+  `model_permanent_error`, `extraction_storage_error`, `checkpoint_error`, `contract_error`,
+  `unexpected_error`). Controlled stop RunError не создаёт.
+- **Однократная регистрация.** `_record_failure` вызывает только `fail_run` (он и добавляет
+  `RunError`); повторный вход при уже `failed` переход не дублирует.
+- **Checkpoint-ошибки.** `OSError`/`sqlite3.Error` адаптера переводятся в
+  `ExtractionCheckpointError` (категория `checkpoint`, код `checkpoint_error`) с сохранением
+  `__cause__`; CLI → exit 3.
+- **События.** `retry_started` содержит `retry_type`, `attempt`, `max_attempts`,
+  `error_category`, `error_code`; `group_failed` — `error_category`, `error_code`,
+  `attempt_count`; `checkpoint_saved` эмитируется `ObservedSqliteSaver` после подтверждённого
+  `super().put` и не эмитируется при ошибке. Неудачная публикация манифеста даёт
+  `run_manifest_publish_failed`.
+- **Redaction.** Числовые `context_tokens`, `max_context_tokens`, `retry_count`, `attempt`,
+  `attempt_count`, `max_attempts` не редактируются; текстовые значения и секреты — по-прежнему.
+- **Context budget.** Полный текст передаётся без усечения в пределах настроенного бюджета;
+  превышение — `extraction_context_overflow` без вызова gateway. Ограничение: контракт
+  `Message.content` — 8192 символа, поэтому full_context реально ограничен этим значением
+  (для документов больше ~8 КБ нужен retrieval Итерации 4).
+## 2026-11-18 — D8: guard контрактного лимита сообщения
+
+`ExtractionService._guard_outbound_messages` проверяет длину **каждого** сформированного
+сообщения (system/prompt и user/document) до создания `Message` и `ModelRequest`. Лимит
+читается из самого контракта (`Message.model_fields["content"]` → `max_length=8192`), без
+дублирующей константы. Превышение — `ExtractionContextOverflow`
+(`extraction_context_overflow`, `context`) с сообщением вида
+`outbound user message exceeds Message.content limit: actual_chars=…, max_chars=8192; Model
+Gateway request was not sent`; gateway не вызывается, retry не выполняется, терминальный
+manifest публикуется штатно. Граница 8192 символа включительна и проходит без изменений.
+Подробности и тесты: `tests/agent1a/test_d8_and_evidence.py`.

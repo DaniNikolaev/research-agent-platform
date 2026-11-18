@@ -14,10 +14,12 @@ Exit codes (documented and stable):
 
 ===  ==============================================================
 0    the operation succeeded
-1    execution or validation failure (contract violation, bad input)
+1    execution or validation failure (contract violation, bad input, terminal
+     extraction failure such as a context overflow that ends the Run as ``failed``)
 2    configuration error
 3    infrastructure unavailable or not initialised
-4    controlled stop / waiting for an external action
+4    controlled stop / waiting for an external action (``requires_ocr``,
+     ``needs_human_review``); the Run is ``waiting_for_human`` and carries no ``RunError``
 ===  ==============================================================
 
 The CLI contains no business logic: it parses arguments, calls a service and maps the
@@ -804,17 +806,42 @@ def run_document_report(args: argparse.Namespace) -> int:
 
 
 def _extraction_exit_code(exc: ExtractionError) -> int:
-    """Map one typed extraction failure to the documented CLI exit code."""
+    """Map one typed extraction failure to the documented CLI exit code.
+
+    ``4`` is reserved for a *controlled stop*: the run waits for an external action
+    (``requires_ocr`` / ``needs_human_review``) and no ``RunError`` exists.  A context
+    overflow is a *controlled failure*: the run ends ``failed`` with a ``RunError``, so it
+    uses the terminal-failure code ``1``.
+    """
     category = exc.category
     if category is ErrorCategory.QUALITY:
         return EXIT_CONTROLLED_STOP
-    if category is ErrorCategory.CONTEXT:
-        return EXIT_CONTROLLED_STOP
-    if category in {ErrorCategory.INPUT, ErrorCategory.ARTIFACT, ErrorCategory.INTEGRITY}:
-        return EXIT_INPUT_ERROR
-    if category is ErrorCategory.CONTRACT:
-        return EXIT_INPUT_ERROR
+    if category in {
+        ErrorCategory.INPUT,
+        ErrorCategory.ARTIFACT,
+        ErrorCategory.INTEGRITY,
+        ErrorCategory.CONTRACT,
+        ErrorCategory.CONTEXT,
+    }:
+        return EXIT_CONTRACT_VIOLATION
     return EXIT_INFRASTRUCTURE_ERROR
+
+
+_CONTROLLED_STOP_STATUSES: Final = frozenset({"requires_ocr", "needs_human_review"})
+
+
+def _extraction_outcome_exit_code(payload: dict[str, Any]) -> int:
+    """Exit code of a finished (not raised) extraction outcome.
+
+    ``requires_ocr`` / ``needs_human_review`` wait for an external action → ``4``;
+    a terminal ``failed`` run has a ``RunError`` → ``1``; anything else completed → ``0``.
+    """
+    status = str(payload.get("processing_status") or "")
+    if status in _CONTROLLED_STOP_STATUSES:
+        return EXIT_CONTROLLED_STOP
+    if status == "failed":
+        return EXIT_CONTRACT_VIOLATION
+    return EXIT_OK
 
 
 def _extraction_context(project_root: Path) -> ApplicationContext:
@@ -915,6 +942,13 @@ def run_agent1a_extract(args: argparse.Namespace) -> int:
         )
     except ExtractionError as exc:
         print(f"error: {exc.code} ({exc.category.value}): {exc}", file=sys.stderr)
+        if getattr(exc, "manifest_published", None) is False:
+            note = getattr(exc, "manifest_publication_note", None) or "artifact store unavailable"
+            print(
+                f"warning: the run manifest was not published ({note}); "
+                "the checkpoint holds the last consistent state",
+                file=sys.stderr,
+            )
         return _extraction_exit_code(exc)
     except Exception as exc:
         print(f"error: {type(exc).__name__}: {exc}", file=sys.stderr)
@@ -928,9 +962,7 @@ def run_agent1a_extract(args: argparse.Namespace) -> int:
     else:
         _print_extraction_payload(payload, heading="agent1a extract")
 
-    if payload["interrupt_reason"]:
-        return EXIT_CONTROLLED_STOP
-    return EXIT_OK
+    return _extraction_outcome_exit_code(payload)
 
 
 def _read_extraction_manifest(
@@ -1009,6 +1041,9 @@ def run_agent1a_report(args: argparse.Namespace) -> int:
             print(f"  {group:<30} {status}")
         print(f"  retries:         {manifest.retry_counts or {}}")
         print(f"  final status:    {manifest.final_status}")
+        if manifest.interrupt_reason:
+            print(f"  stop reason:     {manifest.interrupt_reason}")
+        print(f"  errors:          {len(manifest.errors)}")
         print(f"  result artefact: {manifest.extraction_result_uri}")
     if state:
         print(f"  checkpoint node: {(state or {}).get('last_completed_node')}")
@@ -1037,6 +1072,13 @@ def run_agent1a_resume(args: argparse.Namespace) -> int:
         outcome = pipeline.resume(run_id=args.run_id, correlation_id=correlation_id)
     except ExtractionError as exc:
         print(f"error: {exc.code} ({exc.category.value}): {exc}", file=sys.stderr)
+        if getattr(exc, "manifest_published", None) is False:
+            note = getattr(exc, "manifest_publication_note", None) or "artifact store unavailable"
+            print(
+                f"warning: the run manifest was not published ({note}); "
+                "the checkpoint holds the last consistent state",
+                file=sys.stderr,
+            )
         return _extraction_exit_code(exc)
     except Exception as exc:
         print(f"error: {type(exc).__name__}: {exc}", file=sys.stderr)
@@ -1056,7 +1098,7 @@ def run_agent1a_resume(args: argparse.Namespace) -> int:
             )
     if outcome.paused:
         return EXIT_CONTROLLED_STOP
-    return EXIT_OK
+    return _extraction_outcome_exit_code(payload)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
