@@ -182,16 +182,25 @@ class FakeExtractionGateway:
 
         fields = []
         candidates = []
-        for key in field_keys:
+        for index, key in enumerate(field_keys):
             if empty:
                 fields.append({"field_key": key, "status": "empty", "proposed_value": None})
                 continue
             value = f"SIMULATED_VALUE::{key}"
             fields.append({"field_key": key, "status": "candidate", "proposed_value": value})
+            chunk_ids = [
+                item
+                for item in (request.metadata.get("chunk_ids") or "").split(",")
+                if item
+            ]
+            target_chunk = chunk_ids[index % len(chunk_ids)] if chunk_ids else None
+            anchor = self._anchor_quote(request, target_chunk)
             candidates.append(
                 {
                     "field_path": key,
-                    "quote": f"SIMULATED QUOTE for {key} - no scientific content",
+                    "chunk_id": target_chunk,
+                    "quote": anchor
+                    or f"SIMULATED QUOTE for {key} - no scientific content",
                 }
             )
         return {
@@ -200,6 +209,21 @@ class FakeExtractionGateway:
             "evidence_candidates": candidates,
             "warnings": [] if not empty else ["fake scenario returned no candidates"],
         }
+
+    @staticmethod
+    def _anchor_quote(request: ModelRequest, chunk_id: str | None) -> str | None:
+        """Echo a real substring of the provided chunk so the resolver can locate it."""
+        if not chunk_id:
+            return None
+        content = request.messages[-1].content
+        marker = f"[[chunk {chunk_id}]]"
+        start = content.find(marker)
+        if start < 0:
+            return None
+        body_start = start + len(marker)
+        end = content.find("[[/chunk]]", body_start)
+        body = content[body_start:end].strip() if end >= 0 else content[body_start:].strip()
+        return body[:80].strip() or None
 
     def _invalid_response(
         self,

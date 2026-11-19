@@ -52,10 +52,14 @@ from research_platform.application.services.extraction_errors import (
     StructuredOutputError,
 )
 from research_platform.application.services.extraction_payloads import GroupPayload
+from research_platform.application.services.retrieval_pipeline import (
+    evidence_proposals_from_payload,
+)
 from research_platform.application.services.extraction_prompts import PromptTemplate
 from research_platform.config import Agent1ASettings
 from research_platform.domain.documents.quality import QualityStatus
 from research_platform.domain.evidence.models import EvidenceCandidate
+from research_platform.domain.retrieval.models import EvidenceProposal
 from research_platform.domain.extraction.models import (
     ExecutionMode,
     ExtractionFieldValue,
@@ -70,7 +74,7 @@ from research_platform.domain.extraction.models import (
     groups_in_order,
 )
 
-__all__ = ["ExtractionService", "GroupRunContext"]
+__all__ = ["ExtractionService", "GroupExecution", "GroupRunContext"]
 
 _SIMULATION_NOTE: Final = "simulation fixture: not a verified quote from the document"
 
@@ -84,6 +88,15 @@ class GroupRunContext:
     run_id: str
     document_run_id: str
     source_sha256: str
+
+
+@dataclass(frozen=True, slots=True)
+class GroupExecution:
+    """Typed group result plus the evidence proposals the model made."""
+
+    result: GroupExtractionResult
+    proposals: list[EvidenceProposal]
+    warnings: tuple[str, ...] = ()
 
 
 class ExtractionService:
@@ -165,6 +178,15 @@ class ExtractionService:
 
     # ------------------------------------------------------------------ context
 
+    def input_budget_tokens(self) -> int:
+        """Configured token budget of the extraction profile."""
+        capabilities = self._gateway.capabilities(self._settings.model_profile)
+        return (
+            capabilities.max_context_tokens
+            - self._settings.context_output_reserve_tokens
+            - self._settings.context_safety_reserve_tokens
+        )
+
     def check_context(self, *, context_text: str, prompt: PromptTemplate) -> ContextBudget:
         """Verify the prepared context fits the model window.
 
@@ -237,7 +259,8 @@ class ExtractionService:
         prompt: PromptTemplate,
         context_text: str,
         correlation_id: str | None = None,
-    ) -> GroupExtractionResult:
+        chunk_ids: list[str] | None = None,
+    ) -> GroupExecution:
         """Run one group: call, validate, repair if needed.
 
         Raises:
@@ -325,6 +348,15 @@ class ExtractionService:
                 attempts=total_attempts,
                 response=response,
             )
+            proposals, proposal_warnings = evidence_proposals_from_payload(
+                payload_candidates=[
+                    item.model_dump() for item in payload.evidence_candidates
+                ],
+                selected_chunk_ids=chunk_ids or [],
+                allowed_fields=set(field_keys_of(context.group)),
+                document_id=context.document_id,
+                group=context.group.value,
+            )
             log.event(
                 "group_completed",
                 stage="extraction",
@@ -334,7 +366,11 @@ class ExtractionService:
                 provider_id=result.provider_id,
                 execution_mode=result.execution_mode.value,
             )
-            return result
+            return GroupExecution(
+                result=result,
+                proposals=proposals,
+                warnings=tuple(proposal_warnings),
+            )
 
     def _call_with_transient_retries(
         self,

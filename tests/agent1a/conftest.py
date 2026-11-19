@@ -212,6 +212,37 @@ def seed_document_run(
         created_at="2026-11-17T12:00:00Z",
         processing_status="quality_checked",
     )
+    from research_platform.domain.documents.elements import (
+        DocumentElement,
+        ElementType,
+        ProvenanceSource,
+    )
+
+    paragraphs = [
+        part.strip() for part in canonical_text.split("\n\n") if part.strip()
+    ] or [canonical_text.strip()]
+    elements: list[DocumentElement] = []
+    cursor = 0
+    for order, paragraph in enumerate(paragraphs):
+        start = canonical_text.find(paragraph, cursor)
+        start = start if start >= 0 else cursor
+        cursor = start + len(paragraph)
+        elements.append(
+            DocumentElement(
+                block_id=f"el_{order:04d}",
+                element_type=(
+                    ElementType.HEADING
+                    if len(paragraph) < 120 and paragraph[:1].isdigit()
+                    else ElementType.PARAGRAPH
+                ),
+                text=paragraph,
+                page_number=None,
+                reading_order=order,
+                char_start=start,
+                char_end=start + len(paragraph),
+                source=ProvenanceSource.TXT_DECODER,
+            )
+        )
     parsed = ParsedDocument(
         document_id=document_id,
         run_id=document_run_id,
@@ -231,7 +262,7 @@ def seed_document_run(
         page_count=None,
         pages=[],
         sections=[],
-        elements=[],
+        elements=elements,
         tables=[],
         figures=[],
         canonical_text=CanonicalTextInfo(

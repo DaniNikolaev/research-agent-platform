@@ -40,6 +40,14 @@ from research_platform.application.services.extraction_errors import (
     ExtractionIntegrityError,
     ExtractionStorageError,
 )
+from research_platform.application.services.retrieval import (
+    RetrievalMode as RetrievalModeEnum,
+    build_coverage_records,
+)
+from research_platform.application.services.retrieval_pipeline import (
+    PreparedRetrieval,
+    RetrievalPipeline,
+)
 from research_platform.application.services.extraction_prompts import (
     PromptTemplate,
 )
@@ -59,6 +67,12 @@ from research_platform.domain.extraction.models import (
     GroupExtractionResult,
     GroupStatus,
     groups_in_order,
+)
+from research_platform.domain.retrieval.models import (
+    EvidenceLedger,
+    EvidenceObject,
+    RetrievalManifest,
+    RetrievalMode,
 )
 from research_platform.domain.runs.artifacts import ArtifactType
 from research_platform.domain.runs.models import (
@@ -107,6 +121,14 @@ class ExtractionRuntimeCache:
     plan: ExtractionPlan | None = None
     results: dict[ExtractionGroup, GroupExtractionResult] = field(default_factory=dict)
     aggregate: ExtractionResult | None = None
+    prepared: PreparedRetrieval | None = None
+    group_queries: dict[ExtractionGroup, object] = field(default_factory=dict)
+    group_retrievals: dict[ExtractionGroup, object] = field(default_factory=dict)
+    group_contexts: dict[ExtractionGroup, object] = field(default_factory=dict)
+    group_proposals: dict[ExtractionGroup, list[object]] = field(default_factory=dict)
+    evidence_objects: list[EvidenceObject] = field(default_factory=list)
+    evidence_unresolved: list[dict[str, str]] = field(default_factory=list)
+    coverage_records: list[object] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
 
 
@@ -121,6 +143,7 @@ class ExtractionDependencies:
     logger: LoggerPort
     cache: ExtractionRuntimeCache
     prompts: dict[ExtractionGroup, PromptTemplate]
+    retrieval: RetrievalPipeline
     clock: Callable[[], datetime] | None = None
 
 
@@ -562,6 +585,30 @@ def _extract_group(
         raise ExtractionError("the extraction plan is missing")
     step = next(item for item in plan.steps if item.group is group)
     prompt = deps.prompts[group]
+    prepared = deps.cache.prepared
+    document = deps.cache.parsed_document
+    if prepared is None or document is None:  # pragma: no cover - prepared earlier
+        raise ExtractionArtifactError("retrieval was not prepared for this run")
+    mode = deps.retrieval.select_mode(
+        prompt=prompt.text,
+        prepared=prepared,
+        document=document,
+        input_budget_tokens=deps.extraction.input_budget_tokens(),
+    )
+    query = deps.retrieval.build_query(document=document, group=group, mode=mode)
+    context_text, record, retrieval = deps.retrieval.build_context(
+        document=document,
+        prepared=prepared,
+        query=query,
+        prompt=prompt.text,
+        mode=mode,
+    )
+    if not context_text.strip():
+        raise ExtractionContextOverflow(
+            f"no retrievable context could be assembled for {group.value} "
+            f"(mode={mode.value}); the document was not truncated",
+            correlation_id=state.get("correlation_id") or "corr_unset",
+        )
     context = GroupRunContext(
         group=group,
         document_id=state["document_id"],
@@ -569,14 +616,20 @@ def _extract_group(
         document_run_id=state["document_run_id"],
         source_sha256=state["source_sha256"],
     )
-    result = deps.extraction.execute_group(
+    execution = deps.extraction.execute_group(
         context=context,
         plan_step=step,
         prompt=prompt,
-        context_text=deps.cache.canonical_text,
+        context_text=context_text,
         correlation_id=state.get("correlation_id"),
+        chunk_ids=record.selected_chunk_ids,
     )
+    result = execution.result
     deps.cache.results[group] = result
+    deps.cache.group_queries[group] = query
+    deps.cache.group_retrievals[group] = retrieval
+    deps.cache.group_contexts[group] = record
+    deps.cache.group_proposals[group] = list(execution.proposals)
     statuses = dict(state.get("group_statuses") or {})
     statuses[group.value] = GroupStatus.RUNNING.value
     counters = dict(state.get("retry_counters") or {})
@@ -585,6 +638,8 @@ def _extract_group(
         "current_group": group.value,
         "group_statuses": statuses,
         "retry_counters": counters,
+        "retrieval_mode": mode.value,
+        "retrieval_status": "retrieved",
         "processing_status": "extracting",
         "last_completed_node": f"extract_{group.value}",
         "updated_at": _iso(deps),
@@ -612,11 +667,144 @@ def _persist_group(
     completed = list(state.get("completed_groups") or [])
     if result.status is GroupStatus.COMPLETED and group.value not in completed:
         completed.append(group.value)
+    retrieval_uris = dict(state.get("group_retrieval_uris") or {})
+    evidence_uris = dict(state.get("group_evidence_uris") or {})
+    record = deps.cache.group_contexts.get(group)
+    if record is not None:
+        retrieval_uris[group.value] = _store_json(
+            deps,
+            prefix=f"art_context_{group.value}",
+            artifact_type=ArtifactType.TRACE,
+            payload=record.model_dump(mode="json"),
+            document_id=state["document_id"],
+            run_id=state["run_id"],
+        )
+        proposals = deps.cache.group_proposals.get(group) or []
+        _store_json(
+            deps,
+            prefix=f"art_candidates_{group.value}",
+            artifact_type=ArtifactType.EXTRACTION_CANDIDATES,
+            payload=[item.model_dump(mode="json") for item in proposals],
+            document_id=state["document_id"],
+            run_id=state["run_id"],
+        )
+        prepared = deps.cache.prepared
+        document = deps.cache.parsed_document
+        if prepared is not None and document is not None and proposals:
+            ledger, outcomes = deps.retrieval.resolve(
+                document=document,
+                prepared=prepared,
+                proposals=proposals,
+                run_id=state["run_id"],
+                created_at=_iso(deps),
+            )
+            deps.cache.evidence_objects.extend(ledger.evidence)
+            deps.cache.evidence_unresolved.extend(ledger.unresolved)
+            evidence_uris[group.value] = _store_json(
+                deps,
+                prefix=f"art_evidence_{group.value}",
+                artifact_type=ArtifactType.EVIDENCE_LEDGER,
+                payload=ledger.model_dump(mode="json"),
+                document_id=state["document_id"],
+                run_id=state["run_id"],
+            )
+            _log(deps, state).event(
+                "evidence_resolution_completed",
+                stage=RunStage.EVIDENCE.value,
+                group=group.value,
+                candidates=len(outcomes),
+                resolved=sum(1 for item in outcomes if item.confirmed),
+                unresolved=sum(1 for item in outcomes if not item.confirmed),
+            )
     return {
         "group_statuses": statuses,
         "group_result_uris": uris,
         "completed_groups": completed,
+        "group_retrieval_uris": retrieval_uris,
+        "group_evidence_uris": evidence_uris,
         "last_completed_node": f"validate_and_persist_{group.value}",
+        "updated_at": _iso(deps),
+    }
+
+
+
+def _prepare_retrieval(deps: ExtractionDependencies, state: Agent1AExtractionState) -> dict[str, Any]:
+    """Chunk the document, build the index and publish the retrieval artefacts."""
+    document = deps.cache.parsed_document
+    if document is None:  # pragma: no cover - guarded by the load node
+        raise ExtractionArtifactError("the parsed document was not loaded")
+    prepared = deps.retrieval.prepare(document, created_at=_iso(deps))
+    deps.cache.prepared = prepared
+    chunks_uri = _store_json(
+        deps,
+        prefix="art_chunks",
+        artifact_type=ArtifactType.RETRIEVAL_INDEX_MANIFEST,
+        payload=[chunk.model_dump(mode="json") for chunk in prepared.chunks],
+        document_id=state["document_id"],
+        run_id=state["run_id"],
+    )
+    manifest = dict(prepared.chunk_manifest)
+    manifest["chunks_artifact_uri"] = chunks_uri
+    manifest_uri = _store_json(
+        deps,
+        prefix="art_chunk_manifest",
+        artifact_type=ArtifactType.RETRIEVAL_INDEX_MANIFEST,
+        payload=manifest,
+        document_id=state["document_id"],
+        run_id=state["run_id"],
+    )
+    lexical_uri = _store_json(
+        deps,
+        prefix="art_lexical_index",
+        artifact_type=ArtifactType.RETRIEVAL_INDEX_MANIFEST,
+        payload={
+            "schema_version": "1.0",
+            "analyzer_version": "bm25-unicode-v1",
+            "chunk_ids": sorted(prepared.by_id),
+            "config_hash": prepared.service.config.config_hash,
+        },
+        document_id=state["document_id"],
+        run_id=state["run_id"],
+    )
+    index_uri = lexical_uri
+    embedding_status = "not_configured"
+    if prepared.embeddings is not None:
+        vectors_uri = _store_json(
+            deps,
+            prefix="art_embedding_vectors",
+            artifact_type=ArtifactType.RETRIEVAL_INDEX_MANIFEST,
+            payload={
+                "schema_version": "1.0",
+                "vectors": prepared.embeddings,
+            },
+            document_id=state["document_id"],
+            run_id=state["run_id"],
+        )
+        embedding_manifest = dict(prepared.embedding_manifest or {})
+        embedding_manifest["vectors_artifact_uri"] = vectors_uri
+        index_uri = _store_json(
+            deps,
+            prefix="art_embedding_manifest",
+            artifact_type=ArtifactType.RETRIEVAL_INDEX_MANIFEST,
+            payload=embedding_manifest,
+            document_id=state["document_id"],
+            run_id=state["run_id"],
+        )
+        embedding_status = str(embedding_manifest.get("execution_mode", "simulation"))
+    _log(deps, state).event(
+        "retrieval_index_built",
+        stage=RunStage.RETRIEVAL.value,
+        chunks=len(prepared.chunks),
+        embedding_status=embedding_status,
+        chunker_version=deps.settings.chunking.chunker_version,
+    )
+    return {
+        "chunk_manifest_uri": manifest_uri,
+        "retrieval_index_manifest_uri": index_uri,
+        "retrieval_status": "indexed",
+        "embedding_status": embedding_status,
+        "processing_status": "planned",
+        "last_completed_node": "prepare_retrieval",
         "updated_at": _iso(deps),
     }
 
@@ -645,8 +833,111 @@ def _aggregate_extraction_results(
         document_id=state["document_id"],
         run_id=state["run_id"],
     )
+    prepared = deps.cache.prepared
+    document = deps.cache.parsed_document
+    quality = deps.cache.quality_report
+    evidence_uri = None
+    coverage_uri = None
+    retrieval_manifest_uri = None
+    if prepared is not None and document is not None and quality is not None:
+        ledger = EvidenceLedger(
+            document_id=document.document_id,
+            source_sha256=document.source_sha256,
+            run_id=state["run_id"],
+            evidence=list(deps.cache.evidence_objects),
+            unresolved=list(deps.cache.evidence_unresolved),
+            created_at=_iso(deps),
+        )
+        evidence_uri = _store_json(
+            deps,
+            prefix="art_evidence_ledger",
+            artifact_type=ArtifactType.EVIDENCE_LEDGER,
+            payload=ledger.model_dump(mode="json"),
+            document_id=state["document_id"],
+            run_id=state["run_id"],
+        )
+        coverage: list[object] = []
+        for group in groups_in_order():
+            retrieval = deps.cache.group_retrievals.get(group)
+            query = deps.cache.group_queries.get(group)
+            if retrieval is None or query is None:
+                continue
+            mode = RetrievalMode(str(getattr(retrieval, "mode", "rag")))
+            coverage.extend(
+                build_coverage_records(
+                    document=document,
+                    run_id=state["run_id"],
+                    mode=mode,
+                    query=query,
+                    result=retrieval,
+                    quality_status=quality.overall_status,
+                    total_chunks=len(prepared.chunks),
+                )
+            )
+        deps.cache.coverage_records = coverage
+        coverage_uri = _store_json(
+            deps,
+            prefix="art_coverage_report",
+            artifact_type=ArtifactType.VALIDATION_REPORT,
+            payload={
+                "schema_version": "1.0",
+                "coverage_policy_version": "1.0",
+                "records": [
+                    item.model_dump(mode="json")
+                    if hasattr(item, "model_dump")
+                    else item
+                    for item in coverage
+                ],
+            },
+            document_id=state["document_id"],
+            run_id=state["run_id"],
+        )
+        retrieval_manifest = RetrievalManifest(
+            run_id=state["run_id"],
+            document_id=document.document_id,
+            source_sha256=document.source_sha256,
+            retrieval_mode=RetrievalMode(str(state.get("retrieval_mode") or "rag")),
+            chunker_version=deps.settings.chunking.chunker_version,
+            chunker_config_hash=str(prepared.chunk_manifest.get("chunker_config_hash", "")),
+            parser_name=document.parser.parser_name,
+            parser_version=document.parser.parser_version,
+            embedding_provider=prepared.service.embedding_provider,
+            embedding_model_id=prepared.service.embedding_model_id,
+            embedding_execution_mode=prepared.service.embedding_status,
+            retrieval_profile_id=deps.settings.retrieval.profile_id,
+            retrieval_config_hash=prepared.service.config.config_hash,
+            chunks_uri=state.get("retrieval_index_manifest_uri"),
+            chunk_manifest_uri=state.get("chunk_manifest_uri"),
+            lexical_index_uri=state.get("retrieval_index_manifest_uri"),
+            embedding_vectors_uri=(
+                str((prepared.embedding_manifest or {}).get("vectors_artifact_uri") or "")
+                or None
+            ),
+            embedding_manifest_uri=(
+                state.get("retrieval_index_manifest_uri")
+                if prepared.embeddings is not None
+                else None
+            ),
+            group_context_uris=dict(state.get("group_retrieval_uris") or {}),
+            group_evidence_uris=dict(state.get("group_evidence_uris") or {}),
+            evidence_ledger_uri=evidence_uri,
+            coverage_uri=coverage_uri,
+            warnings=list(prepared.warnings)[:20],
+            created_at=_iso(deps),
+        )
+        retrieval_manifest_uri = _store_json(
+            deps,
+            prefix="art_retrieval_manifest",
+            artifact_type=ArtifactType.RUN_LOG,
+            payload=retrieval_manifest.model_dump(mode="json"),
+            document_id=state["document_id"],
+            run_id=state["run_id"],
+        )
     return {
         "extraction_result_uri": uri,
+        "evidence_ledger_uri": evidence_uri,
+        "coverage_artifact_uri": coverage_uri,
+        "retrieval_manifest_uri": retrieval_manifest_uri,
         "processing_status": "aggregated",
         "last_completed_node": "aggregate_extraction_results",
         "updated_at": _iso(deps),
@@ -947,6 +1238,7 @@ def build_extraction_graph(
     builder.add_node("check_quality_gate", node(_check_quality_gate))
     builder.add_node("prepare_full_context", node(_prepare_full_context))
     builder.add_node("build_extraction_plan", node(_build_extraction_plan))
+    builder.add_node("prepare_retrieval", node(_prepare_retrieval))
 
     sequence = groups_in_order()
     for group in sequence:
@@ -976,10 +1268,11 @@ def build_extraction_graph(
         },
     )
     builder.add_edge("prepare_full_context", "build_extraction_plan")
+    builder.add_edge("build_extraction_plan", "prepare_retrieval")
 
     for index, group in enumerate(sequence):
         previous = (
-            "build_extraction_plan"
+            "prepare_retrieval"
             if index == 0
             else f"validate_and_persist_{sequence[index - 1].value}"
         )

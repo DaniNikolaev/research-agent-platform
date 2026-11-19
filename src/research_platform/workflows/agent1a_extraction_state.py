@@ -70,6 +70,17 @@ class Agent1AExtractionState(TypedDict, total=False):
     quality_report_uri: str | None
     quality_status: str
 
+    # retrieval
+    chunk_manifest_uri: str | None
+    retrieval_index_manifest_uri: str | None
+    retrieval_manifest_uri: str | None
+    group_retrieval_uris: dict[str, str]
+    group_evidence_uris: dict[str, str]
+    evidence_ledger_uri: str | None
+    coverage_artifact_uri: str | None
+    retrieval_status: str
+    embedding_status: str
+
     # extraction
     retrieval_mode: str
     extraction_plan_version: str
@@ -114,6 +125,15 @@ def initial_extraction_state(
         canonical_text_uri=None,
         quality_report_uri=None,
         quality_status="",
+        chunk_manifest_uri=None,
+        retrieval_index_manifest_uri=None,
+        retrieval_manifest_uri=None,
+        group_retrieval_uris={},
+        group_evidence_uris={},
+        evidence_ledger_uri=None,
+        coverage_artifact_uri=None,
+        retrieval_status="not_started",
+        embedding_status="not_configured",
         retrieval_mode="full_context",
         extraction_plan_version="",
         current_group=None,
@@ -162,6 +182,11 @@ def validate_extraction_state(state: Agent1AExtractionState) -> None:
         "extraction_plan_uri",
         "extraction_result_uri",
         "run_manifest_uri",
+        "chunk_manifest_uri",
+        "retrieval_index_manifest_uri",
+        "retrieval_manifest_uri",
+        "evidence_ledger_uri",
+        "coverage_artifact_uri",
     ):
         uri = state.get(key)
         if uri is not None and not _ARTIFACT_URI_RE.fullmatch(uri):

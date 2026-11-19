@@ -31,6 +31,9 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 __all__ = [
     "ENVIRONMENT_OVERRIDES",
     "Agent1ASettings",
+    "ChunkingSettings",
+    "EmbeddingSettings",
+    "RetrievalSettings",
     "AppSettings",
     "CheckpointerKind",
     "DoclingSettings",
@@ -538,6 +541,57 @@ class Agent1ASettings(ContractModel):
         return self
 
 
+class ChunkingSettings(ContractModel):
+    """Structural chunker parameters (provisional, subject to evaluation)."""
+
+    target_tokens: Annotated[int, Field(ge=50, le=8000)] = 600
+    max_tokens: Annotated[int, Field(ge=50, le=16000)] = 800
+    overlap_tokens: Annotated[int, Field(ge=0, le=2000)] = 40
+    min_tokens: Annotated[int, Field(ge=1, le=2000)] = 100
+    chunker_version: Annotated[str, Field(pattern=r"^[a-z0-9\-]{3,32}$")] = "structural-v1"
+
+
+class EmbeddingSettings(ContractModel):
+    """Embedding profile selection; the fake adapter must be opted into explicitly."""
+
+    profile_id: ShortStr | None = None
+    """``None`` means: no embedding provider configured -> lexical_only retrieval."""
+
+    execution_mode: Annotated[str, Field(pattern=r"^(real|simulation|not_configured)$")] = (
+        "not_configured"
+    )
+    dimension: Annotated[int, Field(ge=8, le=4096)] = 64
+    batch_size: Annotated[int, Field(ge=1, le=1024)] = 64
+
+    @model_validator(mode="after")
+    def _fake_needs_explicit_opt_in(self) -> EmbeddingSettings:
+        if self.execution_mode == "simulation" and not self.profile_id:
+            raise ValueError(
+                "embedding simulation requires an explicit retrieval.embedding.profile_id"
+            )
+        return self
+
+
+class RetrievalSettings(ContractModel):
+    """Retrieval policy and ranking parameters (provisional)."""
+
+    mode_policy: Annotated[str, Field(pattern=r"^(auto|full_context|hybrid|rag)$")] = "auto"
+    lexical_top_k: Annotated[int, Field(ge=1, le=100)] = 8
+    dense_top_k: Annotated[int, Field(ge=1, le=100)] = 8
+    final_top_k: Annotated[int, Field(ge=1, le=50)] = 6
+    rrf_k: Annotated[int, Field(ge=1, le=1000)] = 60
+    profile_id: ShortStr = "default"
+    fallback_scan: bool = True
+    resolver_version: Annotated[str, Field(pattern=r"^[a-z0-9\-]{3,32}$")] = "evidence-resolver-v1"
+
+    @model_validator(mode="after")
+    def _top_k_order(self) -> RetrievalSettings:
+        if self.final_top_k > max(self.lexical_top_k, self.dense_top_k):
+            raise ValueError(
+                "retrieval.final_top_k must not exceed the largest candidate pool"
+            )
+        return self
+
 class PlatformSettings(ContractModel):
     """Root configuration object."""
 
@@ -554,6 +608,9 @@ class PlatformSettings(ContractModel):
     quality_gate: QualityGateSettings = Field(default_factory=QualityGateSettings)
     ocr: OcrSettings = Field(default_factory=OcrSettings)
     agent_1a: Agent1ASettings = Field(default_factory=Agent1ASettings)
+    chunking: ChunkingSettings = Field(default_factory=ChunkingSettings)
+    embedding: EmbeddingSettings = Field(default_factory=EmbeddingSettings)
+    retrieval: RetrievalSettings = Field(default_factory=RetrievalSettings)
 
     @model_validator(mode="after")
     def _agent_profile_exists(self) -> PlatformSettings:

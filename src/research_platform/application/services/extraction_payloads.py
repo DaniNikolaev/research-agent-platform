@@ -44,6 +44,9 @@ class PayloadCandidate(ContractModel):
     """One quote the model offers as support for a field."""
 
     field_path: NonEmptyStr
+    chunk_id: Annotated[
+        str | None, StringConstraints(pattern=r"^chunk_[a-f0-9]{16}$")
+    ] = None
     quote: Annotated[str, StringConstraints(min_length=1, max_length=2000)]
     page_hint: int | None = Field(default=None, ge=1)
 

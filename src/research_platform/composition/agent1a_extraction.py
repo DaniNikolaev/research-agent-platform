@@ -23,7 +23,11 @@ from research_platform.application.services.extraction_prompts import (
     PromptTemplate,
     load_prompt_set,
 )
+from research_platform.application.services.retrieval_pipeline import (
+    RetrievalPipeline,
+)
 from research_platform.application.services.run_manager import RunManager
+from research_platform.platform.models.fake_embedding import FakeEmbeddingAdapter
 from research_platform.config import PlatformSettings
 from research_platform.domain.extraction.models import ExtractionGroup
 from research_platform.platform.models.fake_extraction import (
@@ -79,6 +83,7 @@ class Agent1AExtractionPipeline:
     gateway: FakeExtractionGateway
     token_counter: HeuristicTokenCounter
     prompts: dict[ExtractionGroup, PromptTemplate]
+    embeddings: FakeEmbeddingAdapter | None = None
     checkpoint_provider: CheckpointProviderPort | None = None
     interrupt_after: tuple[str, ...] = ()
     clock: Callable[[], Any] | None = None
@@ -99,6 +104,13 @@ class Agent1AExtractionPipeline:
             logger=self.logger,
             cache=cache,
             prompts=self.prompts,
+            retrieval=RetrievalPipeline(
+                counter=self.token_counter,
+                chunking=self.settings.chunking,
+                retrieval=self.settings.retrieval,
+                embedding=self.settings.embedding,
+                embeddings=self.embeddings,
+            ),
             clock=self.clock,
         )
 
@@ -133,6 +145,30 @@ class Agent1AExtractionPipeline:
         return self._runner().state_for_run(run_id)
 
 
+def _build_embeddings(settings: PlatformSettings) -> FakeEmbeddingAdapter | None:
+    """Build the deterministic fake embedding adapter only on explicit simulation opt-in."""
+    if (
+        settings.embedding.execution_mode != "simulation"
+        or settings.embedding.profile_id is None
+    ):
+        return None
+    from research_platform.application.ports.embedding import EmbeddingCapabilities
+
+    profile_id = settings.embedding.profile_id
+    capabilities = EmbeddingCapabilities(
+        profile_id=profile_id,
+        provider_id="fake-embedding",
+        model_id="fake-hash-embedding-v1",
+        dimension=settings.embedding.dimension,
+        normalized=True,
+        is_fake=True,
+        execution_mode="simulation",
+    )
+    return FakeEmbeddingAdapter(
+        profiles={profile_id: capabilities}, profile_id=profile_id, dimension=settings.embedding.dimension
+    )
+
+
 def build_agent1a_pipeline(
     *,
     settings: PlatformSettings,
@@ -151,6 +187,7 @@ def build_agent1a_pipeline(
         logger=logger,
         gateway=build_extraction_gateway(settings),
         token_counter=HeuristicTokenCounter(),
+        embeddings=_build_embeddings(settings),
         prompts=load_prompt_set(version=settings.agent_1a.prompt_set_version),
         checkpoint_provider=checkpoint_provider,
         interrupt_after=interrupt_after or tuple(settings.agent_1a.interrupt_after),

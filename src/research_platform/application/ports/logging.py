@@ -36,6 +36,11 @@ __all__ = [
     "RUN_CREATED",
     "RUN_FAILED",
     "RUN_MANIFEST_PUBLISH_FAILED",
+    "CHUNKING_COMPLETED",
+    "RETRIEVAL_INDEX_BUILT",
+    "RETRIEVAL_COMPLETED",
+    "RETRIEVAL_FALLBACK",
+    "EVIDENCE_RESOLUTION_COMPLETED",
     "RUN_STARTED",
     "RUN_WAITING_FOR_HUMAN",
     "STAGE_COMPLETED",
@@ -70,6 +75,11 @@ GROUP_FAILED: Final = "group_failed"
 EXTRACTION_PLANNED: Final = "extraction_planned"
 CHECKPOINT_SAVED: Final = "checkpoint_saved"
 RUN_MANIFEST_PUBLISH_FAILED: Final = "run_manifest_publish_failed"
+CHUNKING_COMPLETED: Final = "chunking_completed"
+RETRIEVAL_INDEX_BUILT: Final = "retrieval_index_built"
+RETRIEVAL_COMPLETED: Final = "retrieval_completed"
+RETRIEVAL_FALLBACK: Final = "retrieval_fallback"
+EVIDENCE_RESOLUTION_COMPLETED: Final = "evidence_resolution_completed"
 WORKFLOW_RESUMED: Final = "workflow_resumed"
 
 EVENT_NAMES: Final[frozenset[str]] = frozenset(
@@ -100,6 +110,11 @@ EVENT_NAMES: Final[frozenset[str]] = frozenset(
         EXTRACTION_PLANNED,
         CHECKPOINT_SAVED,
         RUN_MANIFEST_PUBLISH_FAILED,
+        CHUNKING_COMPLETED,
+        RETRIEVAL_INDEX_BUILT,
+        RETRIEVAL_COMPLETED,
+        RETRIEVAL_FALLBACK,
+        EVIDENCE_RESOLUTION_COMPLETED,
         WORKFLOW_RESUMED,
     }
 )
